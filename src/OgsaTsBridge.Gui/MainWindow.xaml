@@ -6,30 +6,12 @@
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource Bg}">
         <Window.Resources>
-        <!-- Dark-themed dropdown items: the default ComboBoxItem popup is
-             light-backgrounded, which left our light foreground unreadable -->
+        <!-- Dropdown uses the light default popup: dark text on light
+             surfaces (plus the system selection highlight) reads cleanly
+             and avoids light-on-light. -->
         <Style x:Key="ComboItemStyle" TargetType="ComboBoxItem">
-            <Setter Property="Foreground" Value="{StaticResource Fg}"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ComboBoxItem">
-                        <Border x:Name="Bd" Background="{StaticResource PanelAlt}"
-                                CornerRadius="4" Padding="10,7" Margin="2,1">
-                            <ContentPresenter/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsHighlighted" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#3A3E4A"/>
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#34405E"/>
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
-                                <Setter TargetName="Bd" Property="BorderThickness" Value="1"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+            <Setter Property="Foreground" Value="#1E1F24"/>
+            <Setter Property="Padding" Value="8,6"/>
         </Style>
     </Window.Resources>
 
@@ -111,7 +93,7 @@
                 <Border Background="{StaticResource Panel}" CornerRadius="10" Padding="10" Margin="0,0,0,14">
                     <StackPanel>
                         <ComboBox x:Name="GameList" Height="34" FontSize="14"
-                                  Background="{StaticResource PanelAlt}" Foreground="{StaticResource Fg}"
+                                  Background="#E8EAF0" Foreground="#1E1F24"
                                   BorderThickness="0" IsEditable="True" IsReadOnly="True"
                                   VerticalContentAlignment="Center"
                                   ItemContainerStyle="{StaticResource ComboItemStyle}"
