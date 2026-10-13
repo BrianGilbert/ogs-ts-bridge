@@ -65,7 +65,7 @@ public sealed class EngineHost : IDisposable
         get { lock (_gate) return _supervisor?.ActiveProcessName(); }
     }
 
-    public Forwarder? ActiveForwarder
+    public IForwarder? ActiveForwarder
     {
         get { lock (_gate) return _supervisor?.Current?.Forwarder; }
     }

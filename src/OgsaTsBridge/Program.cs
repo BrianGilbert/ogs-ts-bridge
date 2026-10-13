@@ -74,7 +74,10 @@ run options:
             Console.WriteLine("sources:");
             foreach (var s in SourceRegistry.All())
             {
-                Console.WriteLine($"  {s.Id,-12} {s.Title} — port {s.DefaultPort}");
+                var input = s.Transport == SourceTransport.SharedMemory
+                    ? $"shared memory {s.SharedMemoryName}"
+                    : $"port {s.DefaultPort}";
+                Console.WriteLine($"  {s.Id,-12} {s.Title} — {input}");
                 Console.WriteLine($"               watches: {string.Join(", ", s.ProcessNames)}");
                 Console.WriteLine($"               {s.Description}");
             }
@@ -82,7 +85,10 @@ run options:
         }
         var src = SourceRegistry.Create(id);
         Console.WriteLine($"{src.Id} — {src.Title}");
-        Console.WriteLine($"  default port: {src.DefaultPort}");
+        if (src.Transport == SourceTransport.SharedMemory)
+            Console.WriteLine($"  input     : shared memory {src.SharedMemoryName} (poll {src.PollIntervalMs} ms)");
+        else
+            Console.WriteLine($"  default port: {src.DefaultPort}");
         Console.WriteLine($"  watches processes: {string.Join(", ", src.ProcessNames)}");
         Console.WriteLine($"  {src.Description}");
         Console.WriteLine("  options (--set key=value):");
@@ -224,7 +230,7 @@ run options:
         return 0;
     }
 
-    delegate Forwarder? ForwarderLookup();
+    delegate IForwarder? ForwarderLookup();
 
     static void StatsLoop(ForwarderLookup lookup, CancellationToken ct)
     {

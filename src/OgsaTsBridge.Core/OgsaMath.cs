@@ -36,5 +36,23 @@ public static class OgsaMath
     /// mapping negates one axis so the handedness flips: ogsa = (−y, z, x).
     /// Applies to any world-space vector (position, velocity, acceleration).</summary>
     public static Vector3 BeamNgWorldToOgsa(float x, float y, float z) => new(-y, z, x);
+
+    /// <summary>EGO / Codemasters-rally / WRC world axes (right-handed, Y
+    /// up) to OGSA world axes: ogsa = (z, y, x) — the x/z swap is the
+    /// orientation-reversing isometry between the two conventions.</summary>
+    public static Vector3 RhuYUpWorldToOgsa(float x, float y, float z) => new(z, y, x);
+
+    /// <summary>Derives OGSA Euler angles from world-space forward and
+    /// right unit vectors (already in OGSA axes): yaw +nose-right,
+    /// pitch +nose-up (forward's up-component), roll +right-side-down
+    /// (right vector's up-component is −sin(roll)).</summary>
+    public static (double yaw, double pitch, double roll) EulerFromForwardRight(
+        Vector3 forward, Vector3 right)
+    {
+        static double clamp(double v) => Math.Clamp(v, -1.0, 1.0);
+        return (Math.Atan2(forward.X, forward.Z),
+                Math.Asin(clamp(forward.Y)),
+                -Math.Asin(clamp(right.Y)));
+    }
 }
 }

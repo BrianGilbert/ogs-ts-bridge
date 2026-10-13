@@ -26,16 +26,16 @@ public sealed class AutoSupervisor : IDisposable
     UdpInputSocket? _input;
     TelemetrySender? _sender;
     OgsaSession? _session;
-    Forwarder? _forwarder;
+    IForwarder? _forwarder;
     Thread? _thread;
     CancellationTokenSource? _cts;
 
     public sealed class ActiveSource
     {
-        public ActiveSource(ILegacySource source, Forwarder forwarder) 
+        public ActiveSource(ILegacySource source, IForwarder forwarder)
         { Source = source; Forwarder = forwarder; }
         public ILegacySource Source { get; }
-        public Forwarder Forwarder { get; }
+        public IForwarder Forwarder { get; }
     }
 
     public AutoSupervisor(IPEndPoint output, int ttl, double maxHz,
@@ -63,20 +63,35 @@ public sealed class AutoSupervisor : IDisposable
             _processName = processName;
 
             _cts = new CancellationTokenSource();
-            _input = new UdpInputSocket(
-                new IPEndPoint(IPAddress.Any, source.DefaultPort));
             _sender = new TelemetrySender(
                 _output.Address.ToString(), _output.Port, _ttl, loopback: true);
             _session = new OgsaSession(_sender, source.Title, _maxHz);
             source.Declare(_session);
 
-            _forwarder = new Forwarder(source, _input, _session);
-            _thread = new Thread(() => _forwarder.Run(_cts.Token))
+            if (source.Transport == SourceTransport.SharedMemory)
             {
-                Name = $"ogsa-ts-bridge.forward.{source.Id}",
-                IsBackground = true,
-                Priority = _priority,
-            };
+                var mmf = new MmfForwarder(source, _session);
+                _forwarder = mmf;
+                _thread = new Thread(() => mmf.Run(_cts.Token))
+                {
+                    Name = $"ogsa-ts-bridge.poll.{source.Id}",
+                    IsBackground = true,
+                    Priority = _priority,
+                };
+            }
+            else
+            {
+                _input = new UdpInputSocket(
+                    new IPEndPoint(IPAddress.Any, source.DefaultPort));
+                var udp = new Forwarder(source, _input, _session);
+                _forwarder = udp;
+                _thread = new Thread(() => udp.Run(_cts.Token))
+                {
+                    Name = $"ogsa-ts-bridge.forward.{source.Id}",
+                    IsBackground = true,
+                    Priority = _priority,
+                };
+            }
             _thread.Start();
             return new ActiveSource(source, _forwarder);
         }
@@ -88,7 +103,7 @@ public sealed class AutoSupervisor : IDisposable
         {
             if (_source is null) return;
             _cts!.Cancel();
-            _input!.Dispose();       // interrupts the blocked receive
+            _input?.Dispose();      // interrupts the blocked receive (UDP path)
             try { _thread!.Join(2000); } catch { }
             _session!.Dispose();     // also disposes the sender
             _cts.Dispose();

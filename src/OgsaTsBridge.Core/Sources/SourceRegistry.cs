@@ -11,6 +11,12 @@ public static class SourceRegistry
     {
         new BeamNgSource(),
         new ForzaSledSource(),
+        new EgoSource(),
+        new SmsSource(),
+        new F1Source(),
+        new WrcSource(),
+        new LfsSource(),
+        new AcFamilySource(),
     };
 
     public static ILegacySource Create(string id)

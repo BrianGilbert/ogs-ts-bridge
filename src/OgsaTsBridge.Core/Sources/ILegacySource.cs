@@ -4,6 +4,18 @@ using OgsaTsBridge;
 
 namespace OgsaTsBridge.Sources
 {
+/// <summary>How a source receives telemetry from the game.</summary>
+public enum SourceTransport
+{
+    /// <summary>The game pushes UDP datagrams — event-driven, the forwarder
+    /// thread wakes on arrival (zero added latency).</summary>
+    Udp,
+    /// <summary>The game writes a Windows memory-mapped file — the
+    /// forwarder polls it at <see cref="PollIntervalMs"/> (sub-tick added
+    /// latency, bounded by the poll interval).</summary>
+    SharedMemory,
+}
+
 /// <summary>
 /// One legacy game's telemetry input, translated to OGSA-TS.
 ///
@@ -13,6 +25,9 @@ namespace OgsaTsBridge.Sources
 /// datagram. Translate must not allocate: write into the session with
 /// SetPose/SetKinematics/SetBodyDynamics/SetChannel/SetWheel and finish
 /// with session.Tick(now) exactly once per forwarded packet.
+///
+/// See docs/PLUGINS.md for the full guide, including the shared-memory
+/// variant and the testing pattern.
 /// </summary>
 public interface ILegacySource
 {
@@ -42,8 +57,30 @@ public interface ILegacySource
     /// fails is counted and dropped.</summary>
     bool AcceptsDatagram(int length);
 
-    /// <summary>Parses and translates one datagram, then ticks the session.
-    /// Called from the receive thread only.</summary>
+    /// <summary>Parses and translates one packet, then ticks the session.
+    /// Called from the forwarder thread only. Shared-memory sources receive
+    /// a snapshot of the mapped page and should return without ticking
+    /// when the page has not changed since the last call.</summary>
     void Translate(System.ReadOnlySpan<byte> datagram, OgsaSession session, double now);
+
+    // ---- transport (defaults keep UDP sources one-concern) ----
+
+    /// <summary>Input transport for this game. UDP sources leave this at
+    /// the default; shared-memory sources override it and the two map
+    /// names below.</summary>
+    SourceTransport Transport => SourceTransport.Udp;
+
+    /// <summary>Memory-mapped file name for SharedMemory sources (e.g.
+    /// "Local\acpmf_physics").</summary>
+    string SharedMemoryName => "";
+
+    /// <summary>Bytes of the mapped page to snapshot per poll (the prefix
+    /// this source reads).</summary>
+    int SharedMemorySize => 0;
+
+    /// <summary>Shared-memory poll interval in milliseconds. Should be
+    /// comfortably below the game's own write cadence (e.g. 2 ms against
+    /// AC's 333 Hz physics).</summary>
+    int PollIntervalMs => 2;
 }
 }

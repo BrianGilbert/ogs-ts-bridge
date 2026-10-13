@@ -20,7 +20,7 @@ namespace OgsaTsBridge
 /// Tasks, no locks on values, no rate shaping. The only work added to the
 /// path is the per-tick latency sample (Stopwatch, two reads, ring write).
 /// </summary>
-public sealed class Forwarder
+public sealed class Forwarder : IForwarder
 {
     readonly ILegacySource _source;
     readonly UdpInputSocket _input;

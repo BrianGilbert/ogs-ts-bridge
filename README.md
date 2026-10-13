@@ -80,13 +80,23 @@ ogsa-ts-bridge list beamng   # one source's options (--set key=value)
 
 ## Sources
 
-| Source | Game(s) | Input | Object payload |
+| Source | Games (watched executables) | Input | Object payload |
 |---|---|---|---|
 | `beamng` | BeamNG.drive | 88-byte UDP (port 4444), telemetry output ON in Options → Gameplay | pose + world kinematics |
 | `forza-sled` | Forza Horizon 4/5, Forza Motorsport 7+ | 232-byte "Sled" UDP (port 5300), Settings → Data Out → this machine, packet type Sled | pose + body dynamics + 4 wheel drive points + channels |
+| `ego` | Dirt Rally 2 (`dirtrally2`), DiRT 4 (`dirt4`) | EGO UDP (port 20777), byte order auto-detected | pose + world kinematics + wheels + g-force channels |
+| `sms` | pCARS2 (`pCARS2AVX`), AMS2 (`AMS2AVX`), pCARS3 (`pCARS3`) | SMS UDP (port 5606) | pose + body dynamics + channels |
+| `f1` | F1 2020–2024 | Codemasters UDP (port 20777), motion + telemetry packets | pose + body dynamics + channels (2023+) |
+| `wrc` | WRC (Generations-era, `WRC`) | WRC UDP (port 20777) | pose + world kinematics + channels |
+| `lfs` | Live for Speed (`LFS`) | OutSim UDP (port 3156) | pose + body dynamics (derived specific force) |
+| `ac-family` | Assetto Corsa (`acs`), ACC (`acc`) | `Local\acpmf_physics` shared memory, 2 ms poll | pose + body dynamics + wheels + channels |
 
-More sources welcome — see
-[Adding a source](#adding-a-source).
+A **source is a format, not a game** — when a new title is confirmed to
+emit a covered format, it joins the executable watch list with no new
+code. Further formats (GT7, iRacing, RaceRoom, ETS2,
+DCS, X-Plane, the HTTP/journal/memory-read families) are on the roadmap
+in [docs/PLUGINS.md](docs/PLUGINS.md) — the full guide to writing and
+registering new sources.
 
 Channel mapping follows the standard's [Common Channels Annex] where a
 concept is ratified (`engine.rpm`, `vehicle.speed`, …); wheel-level data
@@ -133,7 +143,8 @@ rotations: +pitch nose-up, +yaw nose-right, +roll right-side-down
 (CONVENTIONS C-1/C-4). `OgsaMath.EulerToQuaternion` implements exactly
 this and is locked by unit tests against the C-4 definitions.
 
-Source mappings that are **derived from the format docs, not yet verified against the live games**:
+Source mappings that are **derived from the format docs, not yet verified against the live games** (all have `--set flip*`
+escape hatches; see `ogsa-ts-bridge list <id>`):
 
 - `beamng` — world vectors mapped `(x, y, z) → (−y, z, x)` (RH Z-up →
   LH Y-up); Euler assumed radians with direct sign mapping.
@@ -141,6 +152,18 @@ Source mappings that are **derived from the format docs, not yet verified agains
   docs; Euler assumed radians (`--set euler=deg` if a title disagrees);
   Forza's local acceleration is treated as accelerometer-style specific
   force.
+- `ego` — world is RH/Y-up, vectors mapped `(z, y, x)`; orientation from
+  the forward/right vectors; rpm scaled ÷30.
+- `sms` — orientation channel order (pitch, yaw, roll); local acceleration treated as g (`accUnit=ms2` to
+  override).
+- `f1` — g-forces treated as accelerometer-style (gravity included,
+  `gravIncluded` semantics); world position omitted (frame unverified).
+- `wrc` — world vectors mapped `(z, y, x)`; throttle/brake assumed 0..1.
+- `lfs` — local axes assumed X-forward/Y-left/Z-up; acceleration assumed
+  gravity-free g (`accUnit`, `gravIncluded` to override).
+- `ac-family` — AccG order assumed (lateral, longitudinal, vertical) in
+  g, gravity included; heading/pitch/roll direct; fuel/gear emitted raw
+  (game encoding unverified).
 
 Per-axis escape hatches exist for live verification
 (`--set flipYaw/flipPitch/flipRoll=true` flips an Euler axis *and* its
@@ -165,19 +188,10 @@ angular rate consistently). To verify with a real game:
 
 ## Adding a source
 
-1. Create `src/OgsaTsBridge/Sources/YourGameSource.cs` implementing
-   `ILegacySource`: process names to watch, the input port, a
-   `[StructLayout]` packet struct mirroring the game's format, options
-   (`Options` + `Configure`), `Declare` (object, wheels, channels — keep
-   discovery under ~1.4 kB), and `Translate` (zero-allocation parse →
-   `SetPose` / `SetKinematics` / `SetBodyDynamics` / `SetWheel` /
-   `SetChannel` → exactly one `session.Tick(now)`).
-2. Register it in `SourceRegistry.All()`.
-3. Add a forged-packet test (see `Fixtures` + `TranslationTests`) and a
-   loopback test if the input path is new.
-4. Document the game-side setup and any unverified axis assumptions in
-   this README.
-
+See **[docs/PLUGINS.md](docs/PLUGINS.md)** — the complete guide: the
+format-not-game principle, the `ILegacySource` contract, a full UDP
+example, the shared-memory variant, axis conventions, options, testing,
+and registration.
 
 ## Development
 
