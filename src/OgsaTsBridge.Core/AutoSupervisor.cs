@@ -81,8 +81,26 @@ public sealed class AutoSupervisor : IDisposable
             }
             else
             {
-                _input = new UdpInputSocket(
-                    new IPEndPoint(IPAddress.Any, source.DefaultPort));
+                try
+                {
+                    _input = new UdpInputSocket(
+                        new IPEndPoint(IPAddress.Any, source.DefaultPort));
+                }
+                catch (InputPortException ex)
+                {
+                    // surface on any thread (watcher/UI) without crashing:
+                    // clean up, stay idle, keep watching
+                    Console.Error.WriteLine(ex.Message);
+                    _session.Dispose();
+                    _sender.Dispose();
+                    _cts.Dispose();
+                    _source = null;
+                    _processName = null;
+                    _session = null;
+                    _sender = null;
+                    _cts = null;
+                    return null;
+                }
                 var udp = new Forwarder(source, _input, _session);
                 _forwarder = udp;
                 _thread = new Thread(() => udp.Run(_cts.Token))

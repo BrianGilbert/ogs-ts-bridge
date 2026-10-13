@@ -163,6 +163,18 @@ run options:
     }
 
     /// <summary>Manual mode: one pinned source, no process watching.</summary>
+    static UdpInputSocket? TryBind(IPEndPoint local, RunOptions o, out bool failed)
+    {
+        failed = false;
+        try { return new UdpInputSocket(local); }
+        catch (InputPortException ex)
+        {
+            Console.Error.WriteLine(ex.Message);
+            failed = true;
+            return null;
+        }
+    }
+
     static int RunPinned(RunOptions o, CancellationToken ct)
     {
         ILegacySource source;
@@ -179,7 +191,8 @@ run options:
         Console.WriteLine($"  forwarding: {o.Endpoint} ttl {o.Ttl}, motion cap {o.MaxHz} Hz");
         Console.WriteLine("  Ctrl+C to stop");
 
-        using var input = new UdpInputSocket(new IPEndPoint(IPAddress.Any, inPort));
+        using var input = TryBind(new IPEndPoint(IPAddress.Any, inPort), o, out bool bindFailed);
+        if (bindFailed) return 2;
         using var sender = new TelemetrySender(
             o.Endpoint.Address.ToString(), o.Endpoint.Port, o.Ttl, loopback: true);
         using var session = new OgsaSession(sender, source.Title, o.MaxHz);

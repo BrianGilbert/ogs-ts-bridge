@@ -55,7 +55,14 @@ public sealed class UdpInputSocket : IDisposable
             }
         }
 
-        _socket.Bind(local);
+        try
+        {
+            _socket.Bind(local);
+        }
+        catch (SocketException ex)
+        {
+            throw new InputPortException(local, ex);
+        }
 
         // ReuseAddress lets several sockets co-own the port and Windows
         // silently routes unicast to one of them — a stale instance (or
