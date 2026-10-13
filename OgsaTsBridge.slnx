@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/OgsaTsBridge/OgsaTsBridge.csproj" />
+  <Project Path="tests/OgsaTsBridge.Tests/OgsaTsBridge.Tests.csproj" />
+</Solution>
