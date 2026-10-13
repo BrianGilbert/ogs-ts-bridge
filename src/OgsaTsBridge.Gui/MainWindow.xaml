@@ -6,20 +6,19 @@
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource Bg}">
         <Window.Resources>
-        <Style x:Key="SourceItemStyle" TargetType="ListBoxItem">
+        <!-- Dark-themed dropdown items: the default ComboBoxItem popup is
+             light-backgrounded, which left our light foreground unreadable -->
+        <Style x:Key="ComboItemStyle" TargetType="ComboBoxItem">
             <Setter Property="Foreground" Value="{StaticResource Fg}"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Padding" Value="8"/>
-            <Setter Property="Margin" Value="0,0,0,6"/>
-            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="ListBoxItem">
-                        <Border x:Name="Bd" Background="{StaticResource PanelAlt}" CornerRadius="8" Padding="10">
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="Bd" Background="{StaticResource PanelAlt}"
+                                CornerRadius="4" Padding="10,7" Margin="2,1">
                             <ContentPresenter/>
                         </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
+                            <Trigger Property="IsHighlighted" Value="True">
                                 <Setter TargetName="Bd" Property="Background" Value="#3A3E4A"/>
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
@@ -115,6 +114,7 @@
                                   Background="{StaticResource PanelAlt}" Foreground="{StaticResource Fg}"
                                   BorderThickness="0" IsEditable="True" IsReadOnly="True"
                                   VerticalContentAlignment="Center"
+                                  ItemContainerStyle="{StaticResource ComboItemStyle}"
                                   SelectionChanged="OnGameSelected"/>
                         <StackPanel Orientation="Horizontal" Margin="6,10,6,2">
                             <Button x:Name="StartManual" Content="Forward this game"
