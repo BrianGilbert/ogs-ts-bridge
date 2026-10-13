@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
@@ -55,6 +56,22 @@ public sealed class UdpInputSocket : IDisposable
         }
 
         _socket.Bind(local);
+
+        // ReuseAddress lets several sockets co-own the port and Windows
+        // silently routes unicast to one of them — a stale instance (or
+        // another telemetry tool) can starve us with no error.
+        // Surface any pre-existing owner instead of failing silently.
+        try
+        {
+            var dup = System.Net.NetworkInformation.IPGlobalProperties
+                .GetIPGlobalProperties().GetActiveUdpListeners()
+                .Count(ep => ep.Port == local.Port);
+            if (dup > 1) // us + someone else
+                Console.Error.WriteLine(
+                    $"warning: {dup - 1} other listener(s) already on UDP port {local.Port} — " +
+                    $"they may be receiving the game's packets. Close them or use --in-port.");
+        }
+        catch { /* best-effort diagnostics */ }
     }
 
     /// <summary>UDP receive timeout: the forwarder wakes this often to
