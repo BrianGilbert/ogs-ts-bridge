@@ -75,14 +75,15 @@ public class SourcesBatchTests
     }
 
     [Theory]
-    [InlineData(false)] // Dirt Rally 2, little-endian
-    [InlineData(true)]  // DiRT 4, big-endian (auto-detected)
-    public void Ego_Translates_Pose_Kinematics_Channels(bool bigEndian)
+    [InlineData(false, "ref")]      // default formulas
+    [InlineData(false, "fwdRight")] // basis-vector map
+    [InlineData(true, "ref")]       // DiRT 4, big-endian (auto-detected)
+    public void Ego_Translates_Pose_Kinematics_Channels(bool bigEndian, string euler)
     {
         using var cap = new Capture();
         using var session = cap.MakeSession("EGO");
         var src = new EgoSource();
-        src.Configure(O());
+        src.Configure(new Dictionary<string, string> { ["euler"] = euler });
         src.Declare(session);
         session.Start(Monotonic());
 
@@ -90,9 +91,14 @@ public class SourcesBatchTests
         var m = cap.LastMotion();
         var obj = m.Objects[0];
 
-        // car facing EGO +X -> OGSA forward: expect identity-ish (yaw 0)
-        var expect = OgsaMath.EulerToQuaternion(0, 0, 0);
+        // forged packet: fwd=+X (raw), right=+Z (raw)
+        // - ref:      yaw = atan2(fY+fX, fZ) = atan2(1, 0) = 90°
+        // - fwdRight: mapped basis is axis-aligned -> yaw 0
+        var expect = euler == "ref"
+            ? OgsaMath.EulerToQuaternion(Math.PI / 2, 0, 0)
+            : OgsaMath.EulerToQuaternion(0, 0, 0);
         AssertEx.ApproxEqual(expect.X, obj.Orientation.X, 1e-4f);
+        AssertEx.ApproxEqual(expect.Y, obj.Orientation.Y, 1e-4f);
         AssertEx.ApproxEqual(expect.W, obj.Orientation.W, 1e-4f);
 
         // world velocity = dir * speed -> OGSA (z,y,x) of (30,0,0) = (0,0,30)

@@ -22,13 +22,30 @@ namespace OgsaTsBridge.Sources
 /// Output: pose + world kinematics (the packet measures world velocity
 /// natively); per-wheel suspension ride the four WheelState drive points;
 /// g-forces and steer go out as channels.
+///
+/// Pose derivation is switchable (`--set euler=ref|fwdRight`):
+/// - `ref` (default): pitch = asin(−fY), roll = −asin(−rY), yaw = atan2(fY + fX, fZ).
+/// - `fwdRight`: orientation from the forward/right basis vectors mapped
+///   through the RH/Y-up → OGSA world map (book-derived, failed against
+///   live DR2 data — kept for A/B verification).
+/// Set `OGSA_TS_BRIDGE_DUMP_EGO=<n>` to print the first n packets' raw fields to
+/// stderr (works from the GUI too) for layout ground-truthing.
 /// </summary>
 public sealed class EgoSource : ILegacySource
 {
     OgsaChannel _rpm, _speed, _gLat, _gLong, _steer;
     double _sy = 1, _sp = 1, _sr = 1, _rpmScale = 30;
     double _wheelbase = 2.6, _track = 1.6, _radius = 0.34;
-    int? _bigEndian; // detected per session, sticky
+    bool _refEuler = true;
+    int? _bigEndian; // detected per session, sticky once confident
+    int _dumped;
+    static readonly int DumpLimit = InitDumpLimit();
+
+    static int InitDumpLimit()
+    {
+        var v = Environment.GetEnvironmentVariable("OGSA_TS_BRIDGE_DUMP_EGO");
+        return int.TryParse(v, out var n) ? n : 0;
+    }
 
     public string Id => "ego";
     public string Title => "EGO telemetry (Dirt Rally 2 / DiRT 4)";
@@ -42,6 +59,7 @@ public sealed class EgoSource : ILegacySource
 
     public IReadOnlyList<(string Key, string Help)> Options { get; } = new[]
     {
+        ("euler",     "pose derivation: ref (default) | fwdRight (basis-vector map)"),
         ("endian",    "force byte order: auto (default) | le | be"),
         ("flipYaw",   "negate yaw Euler sign (bool, default false)"),
         ("flipPitch", "negate pitch Euler sign (bool, default false)"),
@@ -55,8 +73,9 @@ public sealed class EgoSource : ILegacySource
     public void Configure(IReadOnlyDictionary<string, string> options)
     {
         var o = new SourceOptions(options);
-        o.EnsureKnown("endian", "flipYaw", "flipPitch", "flipRoll",
+        o.EnsureKnown("euler", "endian", "flipYaw", "flipPitch", "flipRoll",
                       "rpmScale", "wheelbase", "track", "radius");
+        _refEuler = !o.GetString("euler", "ref").Equals("fwdRight", StringComparison.OrdinalIgnoreCase);
         _sy = o.GetBool("flipYaw", false) ? -1 : 1;
         _sp = o.GetBool("flipPitch", false) ? -1 : 1;
         _sr = o.GetBool("flipRoll", false) ? -1 : 1;
@@ -92,14 +111,42 @@ public sealed class EgoSource : ILegacySource
     {
         bool be = DetectEndian(d);
 
-
         float speed = F(d, 28, be);
-        var fwd = OgsaMath.RhuYUpWorldToOgsa(F(d, 56, be), F(d, 60, be), F(d, 64, be));
-        var right = OgsaMath.RhuYUpWorldToOgsa(F(d, 44, be), F(d, 48, be), F(d, 52, be));
-        var dir = OgsaMath.RhuYUpWorldToOgsa(F(d, 32, be), F(d, 36, be), F(d, 40, be));
+        float rawFX = F(d, 56, be), rawFY = F(d, 60, be), rawFZ = F(d, 64, be);
+        float rawRX = F(d, 44, be), rawRY = F(d, 48, be), rawRZ = F(d, 52, be);
 
-        var (yaw, pitch, roll) = OgsaMath.EulerFromForwardRight(fwd, right);
-        session.SetPose(null, OgsaMath.EulerToQuaternion(_sy * yaw, _sp * pitch, _sr * roll));
+        if (_dumped < DumpLimit)
+        {
+            _dumped++;
+            float rf = MathF.Sqrt(rawRX * rawRX + rawRY * rawRY + rawRZ * rawRZ);
+            float ff = MathF.Sqrt(rawFX * rawFX + rawFY * rawFY + rawFZ * rawFZ);
+            Console.Error.WriteLine(
+                $"[ego dump {_dumped}/{DumpLimit}] be={be} speed={speed,8:F3} " +
+                $"dir=({F(d, 32, be):F3},{F(d, 36, be):F3},{F(d, 40, be):F3}) " +
+                $"right=({rawRX:F3},{rawRY:F3},{rawRZ:F3}) |r|={rf:F3} " +
+                $"fwd=({rawFX:F3},{rawFY:F3},{rawFZ:F3}) |f|={ff:F3} " +
+                $"gLat={F(d, 136, be):F3} gLong={F(d, 140, be):F3} rpm={F(d, 148, be) / _rpmScale:F0}");
+        }
+
+        if (_refEuler)
+        {
+            // pitch = asin(-fY), roll = -asin(-rY), yaw = atan2(fY + fX, fZ)
+            double pitch = Math.Asin(Math.Clamp(-rawFY, -1.0, 1.0));
+            double roll = -Math.Asin(Math.Clamp(-rawRY, -1.0, 1.0));
+            double yaw = Math.Atan2(rawFY + rawFX, rawFZ);
+            session.SetPose(null, OgsaMath.EulerToQuaternion(
+                _sy * yaw, _sp * pitch, _sr * roll));
+        }
+        else
+        {
+            var fwd = OgsaMath.RhuYUpWorldToOgsa(rawFX, rawFY, rawFZ);
+            var right = OgsaMath.RhuYUpWorldToOgsa(rawRX, rawRY, rawRZ);
+            var (yaw, pitch, roll) = OgsaMath.EulerFromForwardRight(fwd, right);
+            session.SetPose(null, OgsaMath.EulerToQuaternion(
+                _sy * yaw, _sp * pitch, _sr * roll));
+        }
+
+        var dir = OgsaMath.RhuYUpWorldToOgsa(F(d, 32, be), F(d, 36, be), F(d, 40, be));
         session.SetKinematics(dir * speed, default);
 
         session.SetWheel(0, 0f, F(d, 76, be), CapnpGen.ContactMedium.asphalt); // packet order bl,br,fl,fr
@@ -149,7 +196,11 @@ public sealed class EgoSource : ILegacySource
             float len = MathF.Sqrt(fx * fx + fy * fy + fz * fz);
             return s is >= 0f and <= 150f && len is >= 0.8f and <= 1.2f;
         }
-        bool be = !Plausible(d) && PlausibleBe(d);
+        bool leOk = Plausible(d);
+        bool beOk = PlausibleBe(d);
+        if (!leOk && !beOk)
+            return false; // undecided (e.g. zeroed warm-up packet) — assume LE, keep probing
+        bool be = !leOk && beOk;
         _bigEndian = be ? 1 : 0;
         return be;
     }
