@@ -55,7 +55,9 @@ dotnet publish src/OgsaTsBridge.Gui -c Release -r win-x64 --self-contained true 
 
 Both executables land in `artifacts/release/` (gitignored). For dev
 runs without publishing: `dotnet run --project src/OgsaTsBridge.Gui` or
-`dotnet run --project src/OgsaTsBridge -- run`. Releases are CalVer and
+`dotnet run --project src/OgsaTsBridge -- run` (bare
+`ogsa-ts-bridge.exe` launches the GUI when both are published together).
+Releases are CalVer and
 cut automatically by CI on merge to `main` — never push unverified work
 to `main` (a push publishes).
 

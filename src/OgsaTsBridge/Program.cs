@@ -26,7 +26,9 @@ public static class Program
 {
     public static int Main(string[] args)
     {
-        if (args.Length == 0 || args[0] is "--help" or "-h" or "help")
+        if (args.Length == 0)
+            return LaunchGui(); // no args = the desktop app
+        if (args[0] is "--help" or "-h" or "help")
             return Usage();
 
         switch (args[0])
@@ -39,6 +41,25 @@ public static class Program
                 Console.Error.WriteLine($"unknown command '{args[0]}'");
                 return Usage();
         }
+    }
+
+    /// <summary>No-args launch = the GUI (same folder). Falls back to
+    /// help text when the GUI binary isn't present (e.g. `dotnet run`).
+    /// </summary>
+    static int LaunchGui()
+    {
+        var exe = System.IO.Path.Combine(AppContext.BaseDirectory, "OgsaTsBridge.Gui.exe");
+        if (System.IO.File.Exists(exe))
+        {
+            using var _ = System.Diagnostics.Process.Start(
+                new System.Diagnostics.ProcessStartInfo(exe) { UseShellExecute = true });
+            return 0;
+        }
+        Console.Error.WriteLine(
+            "OgsaTsBridge.Gui.exe not found next to this executable — " +
+            "publish both projects to one folder (see README) or use " +
+            "`ogsa-ts-bridge run`.");
+        return Usage();
     }
 
     static int Usage()

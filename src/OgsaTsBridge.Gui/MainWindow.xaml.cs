@@ -3,6 +3,7 @@ using System;
 using System.Diagnostics;
 using System.Net;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -23,6 +24,8 @@ public partial class MainWindow : Window
 
     readonly EngineHost _host;
     readonly DispatcherTimer _ui;
+    System.Windows.Forms.NotifyIcon? _tray;
+    bool _hiddenOnce;
 
     long _lastIn, _lastOut, _lastRejected;
 
@@ -53,8 +56,52 @@ public partial class MainWindow : Window
         _ui.Tick += (_, _) => RefreshStats();
         _ui.Start();
 
+        InitTray();
+
         RefreshAll();
-        Closed += (_, _) => _host.Dispose();
+        // closing hides to the tray: the engine keeps running with a
+        // visible tray icon — "is it running?" always has an answer.
+        // Exit for real from the tray menu.
+        Closing += (_, e) =>
+        {
+            e.Cancel = true;
+            Hide();
+            if (!_hiddenOnce)
+            {
+                _hiddenOnce = true;
+                _tray!.ShowBalloonTip(3000, "OGSA-TS Bridge",
+                    "Still running — right-click the tray icon to open or exit.",
+                    System.Windows.Forms.ToolTipIcon.Info);
+            }
+        };
+    }
+
+    void InitTray()
+    {
+        var menu = new System.Windows.Forms.ContextMenuStrip();
+        menu.Items.Add("Open", null, (_, _) => ShowWindow());
+        menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+        menu.Items.Add("Exit", null, (_, _) =>
+        {
+            _tray!.Visible = false;
+            _host.Dispose();
+            Application.Current.Shutdown();
+        });
+        _tray = new System.Windows.Forms.NotifyIcon
+        {
+            Icon = System.Drawing.SystemIcons.Application,
+            Text = "OGSA-TS Bridge",
+            Visible = true,
+            ContextMenuStrip = menu,
+        };
+        _tray.DoubleClick += (_, _) => ShowWindow();
+    }
+
+    void ShowWindow()
+    {
+        Show();
+        WindowState = WindowState.Normal;
+        Activate();
     }
 
     sealed class SourceRow

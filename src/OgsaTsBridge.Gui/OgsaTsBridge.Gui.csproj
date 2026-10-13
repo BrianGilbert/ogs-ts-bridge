@@ -4,6 +4,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms> <!-- tray icon + single-instance helpers -->
     <Nullable>enable</Nullable>
     <AssemblyName>OgsaTsBridge.Gui</AssemblyName>
     <ServerGarbageCollection>false</ServerGarbageCollection>
