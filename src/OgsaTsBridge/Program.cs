@@ -43,9 +43,10 @@ public static class Program
 
     static int Usage()
     {
+        var version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "dev";
         Console.WriteLine(
-"""
-ogsa-ts-bridge <version 0.1.0> — legacy game telemetry -> OGSA-TS UDP
+$"""
+ogsa-ts-bridge <version {version}> — legacy game telemetry -> OGSA-TS UDP
 
   list [id]            list sources (or one source's options)
   run [--source <id>]  translate + forward (Ctrl+C to stop)

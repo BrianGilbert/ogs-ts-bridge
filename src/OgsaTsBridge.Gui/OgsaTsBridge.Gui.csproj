@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <AssemblyName>OgsaTsBridge.Gui</AssemblyName>
     <ServerGarbageCollection>false</ServerGarbageCollection>
-    <Version>0.1.0</Version>
+    <Version>2026.10.13</Version>
   </PropertyGroup>
 
   <ItemGroup>

@@ -39,10 +39,12 @@ Two frontends share one engine:
 
 ## Getting the app
 
-**Release download** (once the repo has a tagged release): grab
-`ogsa-ts-bridge-vX.Y.Z-win-x64.zip` from GitHub Releases, unzip anywhere,
-and run `OgsaTsBridge.Gui.exe` (desktop app) or `ogsa-ts-bridge.exe`
-(headless console). Self-contained — no .NET install needed.
+**Release download**: every push to `main` auto-cuts a CalVer release
+(`vYYYY.MM.DD`, run-number suffixed on same-day repeats) — grab
+`ogsa_ts_bridge-[YYYY.MM.DD]-win64.zip` from GitHub Releases, unzip
+anywhere, and run `OgsaTsBridge.Gui.exe` (desktop app) or
+`ogsa-ts-bridge.exe` (headless console). Self-contained — no .NET
+install needed.
 
 **From source** (needs the .NET 8 SDK):
 
@@ -53,8 +55,9 @@ dotnet publish src/OgsaTsBridge.Gui -c Release -r win-x64 --self-contained true 
 
 Both executables land in `artifacts/release/` (gitignored). For dev
 runs without publishing: `dotnet run --project src/OgsaTsBridge.Gui` or
-`dotnet run --project src/OgsaTsBridge -- run`. To cut a release, push a
-`v*` tag — CI builds, tests, and attaches the zip to a GitHub release.
+`dotnet run --project src/OgsaTsBridge -- run`. Releases are CalVer and
+cut automatically by CI on merge to `main` — never push unverified work
+to `main` (a push publishes).
 
 ## Quick start
 
