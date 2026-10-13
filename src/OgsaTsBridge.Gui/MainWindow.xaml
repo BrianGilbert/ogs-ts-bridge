@@ -117,6 +117,9 @@
                         <StackPanel Orientation="Horizontal" Margin="6,10,6,2">
                             <Button x:Name="StartManual" Content="Forward this game"
                                     Padding="16,6" Margin="0,0,10,0" Click="OnStartManual"/>
+                            <Button x:Name="PatchGame" Content="Enable game telemetry"
+                                    Padding="16,6" Margin="0,0,10,0" Click="OnPatchGame"
+                                    ToolTip="Writes the game's config file so it starts sending telemetry (game must be closed). A .bak-ogsa-ts-bridge backup is kept."/>
                             <Button x:Name="StopSession" Content="Stop forwarding"
                                     Padding="16,6" Margin="0,0,10,0" Click="OnStopSession"/>
                             <CheckBox x:Name="AutoWatchBox" Content="auto-detect running games"

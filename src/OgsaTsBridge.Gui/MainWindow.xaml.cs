@@ -149,6 +149,7 @@ public partial class MainWindow : Window
         }
 
         StartManual.IsEnabled = active is null && SourceList.SelectedItem is SourceRow;
+        PatchGame.IsEnabled = SourceList.SelectedItem is SourceRow { Source: IGamePatcher };
         StopSession.IsEnabled = active is not null;
 
         RefreshStats(resetRates: active is null);
@@ -187,6 +188,34 @@ public partial class MainWindow : Window
             LP99.Text = l.P99.ToString("F0");
             LMax.Text = l.Max.ToString("F0");
         }
+    }
+
+    void OnPatchGame(object sender, RoutedEventArgs e)
+    {
+        if (SourceList.SelectedItem is not SourceRow { Source: IGamePatcher patcher }) return;
+        var row = (SourceRow)SourceList.SelectedItem;
+        foreach (var name in row.Source.ProcessNames)
+        {
+            var running = Process.GetProcessesByName(name);
+            if (running.Length > 0)
+            {
+                foreach (var proc in running) proc.Dispose();
+                MessageBox.Show(this,
+                    $"{name} is running. Close the game first — it rewrites its config on exit — then try again.",
+                    "Game is running", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+        }
+        var files = patcher.PatchGameTelemetry(row.Source.DefaultPort);
+        MessageBox.Show(this,
+            files.Count == 0
+                ? "No config files found. Start the game at least once so they exist, then try again."
+                : "Patched:" + Environment.NewLine + string.Join(Environment.NewLine, files) +
+                  Environment.NewLine + Environment.NewLine +
+                  "A .bak-ogsa-ts-bridge backup was saved alongside each file." + Environment.NewLine +
+                  $"Start the game — it now sends telemetry to 127.0.0.1:{row.Source.DefaultPort}.",
+            "Game telemetry enabled",
+            MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     void OnStartManual(object sender, RoutedEventArgs e)

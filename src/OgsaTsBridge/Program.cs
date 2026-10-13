@@ -37,6 +37,8 @@ public static class Program
                 return List(args.Length > 1 ? args[1] : null);
             case "run":
                 return Run(args.AsSpan(1).ToArray());
+            case "patch":
+                return Patch(args.AsSpan(1).ToArray());
             default:
                 Console.Error.WriteLine($"unknown command '{args[0]}'");
                 return Usage();
@@ -231,6 +233,63 @@ run options:
         if (o.Stats) StatsLoop(() => forwarder, ct);
         thread.Join();
         Console.WriteLine("stopped.");
+        return 0;
+    }
+
+
+    /// <summary>Enables a game's telemetry output (config edit) for
+    /// sources implementing IGamePatcher. Run with the game closed.</summary>
+    static int Patch(string[] args)
+    {
+        string? sourceId = null;
+        int port = -1;
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (args[i] == "--source" && i + 1 < args.Length) sourceId = args[++i];
+            else if (args[i] == "--port" && i + 1 < args.Length) port = int.Parse(args[++i]);
+            else { Console.Error.WriteLine($"unknown patch option '{args[i]}'"); return 2; }
+        }
+        if (sourceId is null)
+        {
+            Console.Error.WriteLine("patch --source <id> [--port n] — see `ogsa-ts-bridge list`");
+            return 2;
+        }
+        ILegacySource source;
+        try { source = SourceRegistry.Create(sourceId); }
+        catch (ArgumentException ex) { Console.Error.WriteLine(ex.Message); return 2; }
+
+        if (source is not IGamePatcher patcher)
+        {
+            Console.Error.WriteLine(
+                $"{source.Id} has no config patch — enable its telemetry in-game " +
+                "(see `ogsa-ts-bridge list " + source.Id + "` for setup steps).");
+            return 2;
+        }
+
+        // the game rewrites these files on exit: patch with it closed
+        foreach (var name in source.ProcessNames)
+        {
+            var running = System.Diagnostics.Process.GetProcessesByName(name);
+            if (running.Length > 0)
+            {
+                foreach (var proc in running) proc.Dispose();
+                Console.Error.WriteLine(
+                    $"{name} is running — close the game first (it rewrites the config on exit), then re-run patch.");
+                return 2;
+            }
+        }
+
+        if (port < 0) port = source.DefaultPort;
+        var files = patcher.PatchGameTelemetry(port);
+        if (files.Count == 0)
+        {
+            Console.Error.WriteLine(
+                "no game config files found — start the game at least once so they exist, then re-run patch.");
+            return 1;
+        }
+        foreach (var f in files)
+            Console.WriteLine($"patched: {f} (backup saved alongside as .bak-ogsa-ts-bridge)");
+        Console.WriteLine($"telemetry enabled: UDP 127.0.0.1:{port} — start the game and drive.");
         return 0;
     }
 

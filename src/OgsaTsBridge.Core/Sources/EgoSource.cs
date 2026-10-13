@@ -31,7 +31,7 @@ namespace OgsaTsBridge.Sources
 /// Set `OGSA_TS_BRIDGE_DUMP_EGO=<n>` to print the first n packets' raw fields to
 /// stderr (works from the GUI too) for layout ground-truthing.
 /// </summary>
-public sealed class EgoSource : ILegacySource
+public sealed class EgoSource : ILegacySource, IGamePatcher
 {
     OgsaChannel _rpm, _speed, _gLat, _gLong, _steer;
     double _sy = 1, _sp = 1, _sr = 1, _rpmScale = 30;
@@ -167,6 +167,58 @@ public sealed class EgoSource : ILegacySource
         ? BitConverter.Int32BitsToSingle(
             System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(d.Slice(off, 4)))
         : MemoryMarshal.Read<float>(d.Slice(off, 4));
+
+    // ---- IGamePatcher: DR2/DiRT4 telemetry enablement (config XML) ----
+
+    public IList<string> PatchGameTelemetry(int port) =>
+        PatchEgoFiles(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), port);
+
+    /// <summary>Flips motion_platform/udp to enabled on every existing EGO config file
+    /// (DR2 + its VR variant + DiRT 4). One-time .bak-ogsa-ts-bridge backup per file.
+    /// The game rewrites these files on exit — run with the game closed.</summary>
+    public static IList<string> PatchEgoFiles(string documentsRoot, int port)
+    {
+        var targets = new[]
+        {
+            System.IO.Path.Combine(documentsRoot, "My Games", "DiRT Rally 2.0", "hardwaresettings", "hardware_settings_config.xml"),
+            System.IO.Path.Combine(documentsRoot, "My Games", "DiRT Rally 2.0", "hardwaresettings", "hardware_settings_config_vr.xml"),
+            System.IO.Path.Combine(documentsRoot, "My Games", "DiRT 4", "hardwaresettings", "hardware_settings_config.xml"),
+        };
+        var patched = new List<string>();
+        foreach (var path in targets)
+        {
+            if (!System.IO.File.Exists(path)) continue;
+            var doc = new System.Xml.XmlDocument();
+            doc.Load(path);
+            var root = doc.DocumentElement!;
+
+            var mp = root.SelectSingleNode(".//motion_platform") as System.Xml.XmlElement
+                     ?? AppendNew(doc, root, "motion_platform");
+            var dbox = mp.SelectSingleNode("dbox") as System.Xml.XmlElement;
+            dbox?.SetAttribute("enabled", "true"); // enabled alongside udp
+            var udp = mp.SelectSingleNode("udp") as System.Xml.XmlElement
+                      ?? AppendNew(doc, mp, "udp");
+            udp.SetAttribute("enabled", "true");
+            udp.SetAttribute("ip", "127.0.0.1");
+            udp.SetAttribute("port", port.ToString());
+            udp.SetAttribute("delay", "1");
+            udp.SetAttribute("extradata", "1");
+
+            var backup = path + ".bak-ogsa-ts-bridge";
+            if (!System.IO.File.Exists(backup))
+                System.IO.File.Copy(path, backup);
+            doc.Save(path);
+            patched.Add(path);
+        }
+        return patched;
+    }
+
+    static System.Xml.XmlElement AppendNew(System.Xml.XmlDocument doc, System.Xml.XmlElement parent, string name)
+    {
+        var el = doc.CreateElement(name);
+        parent.AppendChild(el);
+        return el;
+    }
 
     bool DetectEndian(ReadOnlySpan<byte> d)
     {
