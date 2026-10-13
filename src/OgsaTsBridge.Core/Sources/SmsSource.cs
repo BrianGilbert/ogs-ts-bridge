@@ -38,6 +38,14 @@ public sealed class SmsSource : ILegacySource
         "pCARS2AVX", "AMS2AVX", "pCARS3",
     };
 
+    public IReadOnlyList<LegacyGame> Games { get; } = new[]
+    {
+        new LegacyGame("Project CARS 2", "pCARS2AVX"),
+        new LegacyGame("Automobilista 2", "AMS2AVX"),
+        new LegacyGame("Project CARS 3", "pCARS3"),
+    };
+
+
     public IReadOnlyList<(string Key, string Help)> Options { get; } = new[]
     {
         ("flipYaw",   "negate yaw Euler sign (bool, default false)"),

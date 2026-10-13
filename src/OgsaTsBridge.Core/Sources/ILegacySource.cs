@@ -43,6 +43,13 @@ public interface ILegacySource
     /// non-Steam games; no telemetry probing).</summary>
     IReadOnlyList<string> ProcessNames { get; }
 
+    /// <summary>User-facing game catalogue — one entry per covered game,
+    /// each binding a display name to the executable the watcher matches.
+    /// Must cover every <see cref="ProcessNames"/> entry (verified by
+    /// tests) so the GUI can offer a game-name picker and name the active
+    /// game on detection.</summary>
+    IReadOnlyList<LegacyGame> Games { get; }
+
     /// <summary>Source-specific options and their help text, shown by
     /// `ogsa-ts-bridge list &lt;id&gt;` and set with `--set key=value`.</summary>
     IReadOnlyList<(string Key, string Help)> Options { get; }

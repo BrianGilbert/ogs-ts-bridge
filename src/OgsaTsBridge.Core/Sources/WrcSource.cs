@@ -33,6 +33,12 @@ public sealed class WrcSource : ILegacySource
 
     public IReadOnlyList<string> ProcessNames { get; } = new[] { "WRC" };
 
+    public IReadOnlyList<LegacyGame> Games { get; } = new[]
+    {
+        new LegacyGame("WRC (Generations-era)", "WRC"),
+    };
+
+
     public IReadOnlyList<(string Key, string Help)> Options { get; } = new[]
     {
         ("flipYaw",   "negate yaw Euler sign (bool, default false)"),

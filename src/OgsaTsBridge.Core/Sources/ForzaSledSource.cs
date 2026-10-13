@@ -71,6 +71,15 @@ public sealed class ForzaSledSource : ILegacySource
         "ForzaHorizon5", "ForzaHorizon4", "ForzaMotorsport", "ForzaMotorsport7",
     };
 
+    public IReadOnlyList<LegacyGame> Games { get; } = new[]
+    {
+        new LegacyGame("Forza Horizon 5", "ForzaHorizon5"),
+        new LegacyGame("Forza Horizon 4", "ForzaHorizon4"),
+        new LegacyGame("Forza Motorsport (7+)", "ForzaMotorsport"),
+        new LegacyGame("Forza Motorsport 7", "ForzaMotorsport7"),
+    };
+
+
     public IReadOnlyList<(string Key, string Help)> Options { get; } = new[]
     {
         ("euler",     "Euler angle units: rad (default) or deg"),

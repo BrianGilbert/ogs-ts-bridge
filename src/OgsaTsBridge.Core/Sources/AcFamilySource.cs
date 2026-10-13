@@ -42,6 +42,13 @@ public sealed class AcFamilySource : ILegacySource
 
     public IReadOnlyList<string> ProcessNames { get; } = new[] { "acs", "acc" };
 
+    public IReadOnlyList<LegacyGame> Games { get; } = new[]
+    {
+        new LegacyGame("Assetto Corsa", "acs"),
+        new LegacyGame("Assetto Corsa Competizione", "acc"),
+    };
+
+
     public SourceTransport Transport => SourceTransport.SharedMemory;
     public string SharedMemoryName => "Local\\acpmf_physics";
     public int SharedMemorySize => 220;

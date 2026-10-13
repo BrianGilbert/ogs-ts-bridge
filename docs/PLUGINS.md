@@ -36,6 +36,7 @@ stops it when the game exits (plain process names, no Steam dependency, no telem
 | `Id` / `Title` / `Description` | Catalogue entry + CLI/GUI labels |
 | `DefaultPort` | UDP port the game is configured to send to |
 | `ProcessNames` | Executables that indicate this format's games |
+| `Games` | One `LegacyGame(display name, process)` per covered game — must cover every `ProcessNames` entry; this is what the GUI picker shows and how the active game is named (contract-tested) |
 | `Options` | `--set key=value` knobs surfaced by `list <id>` |
 | `Configure(options)` | Apply options once, before anything else |
 | `Declare(session)` | Register the object, wheels, channels — becomes the DiscoveryFrame |

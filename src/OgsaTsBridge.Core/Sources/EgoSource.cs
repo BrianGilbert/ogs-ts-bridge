@@ -57,6 +57,13 @@ public sealed class EgoSource : ILegacySource, IGamePatcher
 
     public IReadOnlyList<string> ProcessNames { get; } = new[] { "dirtrally2", "dirt4" };
 
+    public IReadOnlyList<LegacyGame> Games { get; } = new[]
+    {
+        new LegacyGame("Dirt Rally 2.0", "dirtrally2"),
+        new LegacyGame("DiRT 4", "dirt4"),
+    };
+
+
     public IReadOnlyList<(string Key, string Help)> Options { get; } = new[]
     {
         ("euler",     "pose derivation: ref (default) | fwdRight (basis-vector map)"),

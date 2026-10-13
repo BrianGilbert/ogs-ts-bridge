@@ -102,7 +102,8 @@ run options:
                     ? $"shared memory {s.SharedMemoryName}"
                     : $"port {s.DefaultPort}";
                 Console.WriteLine($"  {s.Id,-12} {s.Title} — {input}");
-                Console.WriteLine($"               watches: {string.Join(", ", s.ProcessNames)}");
+                foreach (var g in s.Games)
+                    Console.WriteLine($"               {g.DisplayName} ({g.ProcessName})");
                 Console.WriteLine($"               {s.Description}");
             }
             return 0;
@@ -114,6 +115,9 @@ run options:
         else
             Console.WriteLine($"  default port: {src.DefaultPort}");
         Console.WriteLine($"  watches processes: {string.Join(", ", src.ProcessNames)}");
+        Console.WriteLine("  games:");
+        foreach (var g in src.Games)
+            Console.WriteLine($"    {g.DisplayName} ({g.ProcessName})");
         Console.WriteLine($"  {src.Description}");
         Console.WriteLine("  options (--set key=value):");
         foreach (var (key, help) in src.Options)

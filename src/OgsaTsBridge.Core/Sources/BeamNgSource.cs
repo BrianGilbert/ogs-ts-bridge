@@ -49,6 +49,12 @@ public sealed class BeamNgSource : ILegacySource
 
     public IReadOnlyList<string> ProcessNames { get; } = new[] { "BeamNG.drive" };
 
+    public IReadOnlyList<LegacyGame> Games { get; } = new[]
+    {
+        new LegacyGame("BeamNG.drive", "BeamNG.drive"),
+    };
+
+
     public IReadOnlyList<(string Key, string Help)> Options { get; } = new[]
     {
         ("flipYaw",   "negate yaw Euler sign (bool, default false)"),

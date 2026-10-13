@@ -43,6 +43,16 @@ public sealed class F1Source : ILegacySource
         "F1_24", "F1_23", "F1_22", "F1_2021", "F1_2020",
     };
 
+    public IReadOnlyList<LegacyGame> Games { get; } = new[]
+    {
+        new LegacyGame("F1 2024", "F1_24"),
+        new LegacyGame("F1 2023", "F1_23"),
+        new LegacyGame("F1 2022", "F1_22"),
+        new LegacyGame("F1 2021", "F1_2021"),
+        new LegacyGame("F1 2020", "F1_2020"),
+    };
+
+
     public IReadOnlyList<(string Key, string Help)> Options { get; } = new[]
     {
         ("flipYaw",   "negate yaw Euler sign (bool, default false)"),

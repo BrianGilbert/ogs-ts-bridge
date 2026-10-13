@@ -34,6 +34,12 @@ public sealed class LfsSource : ILegacySource
 
     public IReadOnlyList<string> ProcessNames { get; } = new[] { "LFS" };
 
+    public IReadOnlyList<LegacyGame> Games { get; } = new[]
+    {
+        new LegacyGame("Live for Speed", "LFS"),
+    };
+
+
     public IReadOnlyList<(string Key, string Help)> Options { get; } = new[]
     {
         ("flipYaw",        "negate yaw Euler sign (bool, default false)"),

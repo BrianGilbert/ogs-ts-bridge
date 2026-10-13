@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Net;
 using System.Windows;
 using System.Windows.Controls;
@@ -46,9 +47,10 @@ public partial class MainWindow : Window
         _host.StateChanged += () => Dispatcher.BeginInvoke(RefreshAll);
         _host.Start();
 
-        foreach (var s in _host.Sources)
-            SourceList.Items.Add(new SourceRow(s));
-        if (SourceList.Items.Count > 0) SourceList.SelectedIndex = 0;
+        foreach (var src in _host.Sources)
+            foreach (var game in src.Games)
+                GameList.Items.Add(new GameRow(game, src));
+        if (GameList.Items.Count > 0) GameList.SelectedIndex = 0;
 
         _ui = new DispatcherTimer(DispatcherPriority.Background)
         {
@@ -105,13 +107,15 @@ public partial class MainWindow : Window
         Activate();
     }
 
-    sealed class SourceRow
+    sealed class GameRow
     {
-        public SourceRow(ILegacySource s) { Source = s; }
+        public GameRow(LegacyGame game, ILegacySource source) { Game = game; Source = source; }
+        public LegacyGame Game { get; }
         public ILegacySource Source { get; }
-        public override string ToString() =>
-            $"{Source.Title}   ·   watches {string.Join(", ", Source.ProcessNames)}   ·   port {Source.DefaultPort}";
+        public override string ToString() => Game.DisplayName;
     }
+
+    void OnGameSelected(object sender, SelectionChangedEventArgs e) => RefreshAll();
 
     void RefreshAll()
     {
@@ -120,10 +124,13 @@ public partial class MainWindow : Window
         if (active is not null)
         {
             StatusDot.Fill = Brushes.Green;
-            StatusText.Text = $"Forwarding: {active.Title}";
+            var gameName = active.Games.FirstOrDefault(
+                g => g.ProcessName.Equals(label, StringComparison.OrdinalIgnoreCase))?.DisplayName
+                ?? (GameList.SelectedItem as GameRow)?.Game.DisplayName;
+            StatusText.Text = $"Forwarding: {gameName ?? active.Title}";
             StatusDetail.Text = _host.ManualActive
                 ? $"manually selected · listening 0.0.0.0:{active.DefaultPort} → {_host.Options.Output}"
-                : $"detected {label} · listening 0.0.0.0:{active.DefaultPort} → {_host.Options.Output}";
+                : $"detected {gameName ?? label} · listening 0.0.0.0:{active.DefaultPort} → {_host.Options.Output}";
         }
         else if (_host.LastError is { } error)
         {
@@ -148,8 +155,8 @@ public partial class MainWindow : Window
             _lastErrorShown = null;
         }
 
-        StartManual.IsEnabled = active is null && SourceList.SelectedItem is SourceRow;
-        PatchGame.IsEnabled = SourceList.SelectedItem is SourceRow { Source: IGamePatcher };
+        StartManual.IsEnabled = active is null && GameList.SelectedItem is GameRow;
+        PatchGame.IsEnabled = GameList.SelectedItem is GameRow { Source: IGamePatcher };
         StopSession.IsEnabled = active is not null;
 
         RefreshStats(resetRates: active is null);
@@ -192,8 +199,7 @@ public partial class MainWindow : Window
 
     void OnPatchGame(object sender, RoutedEventArgs e)
     {
-        if (SourceList.SelectedItem is not SourceRow { Source: IGamePatcher patcher }) return;
-        var row = (SourceRow)SourceList.SelectedItem;
+        if (GameList.SelectedItem is not GameRow { Source: IGamePatcher patcher } row) return;
         foreach (var name in row.Source.ProcessNames)
         {
             var running = Process.GetProcessesByName(name);
@@ -220,7 +226,7 @@ public partial class MainWindow : Window
 
     void OnStartManual(object sender, RoutedEventArgs e)
     {
-        if (SourceList.SelectedItem is not SourceRow row) return;
+        if (GameList.SelectedItem is not GameRow row) return;
         if (!_host.StartManual(row.Source))
         {
             if (_host.LastError is { } error)
