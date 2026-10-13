@@ -37,6 +37,25 @@ Two frontends share one engine:
 
 ![GUI](docs/gui.png)
 
+## Getting the app
+
+**Release download** (once the repo has a tagged release): grab
+`ogsa-ts-bridge-vX.Y.Z-win-x64.zip` from GitHub Releases, unzip anywhere,
+and run `OgsaTsBridge.Gui.exe` (desktop app) or `ogsa-ts-bridge.exe`
+(headless console). Self-contained — no .NET install needed.
+
+**From source** (needs the .NET 8 SDK):
+
+```bash
+dotnet publish src/OgsaTsBridge    -c Release -r win-x64 --self-contained true -o artifacts/release
+dotnet publish src/OgsaTsBridge.Gui -c Release -r win-x64 --self-contained true -o artifacts/release
+```
+
+Both executables land in `artifacts/release/` (gitignored). For dev
+runs without publishing: `dotnet run --project src/OgsaTsBridge.Gui` or
+`dotnet run --project src/OgsaTsBridge -- run`. To cut a release, push a
+`v*` tag — CI builds, tests, and attaches the zip to a GitHub release.
+
 ## Quick start
 
 ```bash

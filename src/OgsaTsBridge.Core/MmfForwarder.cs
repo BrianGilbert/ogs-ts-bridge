@@ -6,6 +6,11 @@ using System.IO.MemoryMappedFiles;
 using System.Threading;
 using OgsaTsBridge.Sources;
 
+// Windows-only by nature: the games that write these pages (AC/ACC) are
+// Windows titles and MemoryMappedFile.OpenExisting for the game's page
+// only exists there.
+#pragma warning disable CA1416
+
 namespace OgsaTsBridge
 {
 /// <summary>
@@ -81,3 +86,5 @@ public sealed class MmfForwarder : IForwarder
     static double Now() => (double)Stopwatch.GetTimestamp() / Stopwatch.Frequency;
 }
 }
+
+#pragma warning restore CA1416
