@@ -17,6 +17,11 @@
 - Game detection is process-name based — never
   probe telemetry ports to guess which game is running, and never depend
   on Steam.
+- The GUI (and any future UI) is snapshot-driven: read stats/latency at
+  display cadence (≤ a few Hz), issue commands only through
+  EngineHost/AutoSupervisor, never add a lock or allocation the
+  forwarder thread would take. UI work must not add code between the
+  receive and send syscalls.
 - Axis/sign mappings not yet verified against the live game are
   documented in the README's verification section with a `--set flip*`
   escape hatch. Update that section when you verify.

@@ -197,56 +197,29 @@ run options:
     /// source for as long as the game runs.</summary>
     static int RunAuto(RunOptions o, CancellationToken ct)
     {
-        var sources = new List<ILegacySource>();
-        foreach (var s in SourceRegistry.All())
-        {
-            s.Configure(o.SourceOptions);
-            sources.Add(s);
-        }
+        using var host = new EngineHost(new EngineOptions(
+            o.Endpoint, o.Ttl, o.MaxHz, o.Priority));
 
-        Console.WriteLine($"ogsa-ts-bridge: auto mode — watching for {sources.Count} source(s):");
-        foreach (var s in sources)
+        Console.WriteLine($"ogsa-ts-bridge: auto mode — watching for {host.Sources.Count} source(s):");
+        foreach (var s in host.Sources)
             Console.WriteLine($"  {s.Id,-12} {string.Join(", ", s.ProcessNames)}");
         Console.WriteLine($"  forwarding: {o.Endpoint} ttl {o.Ttl}, motion cap {o.MaxHz} Hz");
         Console.WriteLine("  Ctrl+C to stop");
 
-        using var supervisor = new AutoSupervisor(o.Endpoint, o.Ttl, o.MaxHz, o.Priority);
-        using var watcher = new GameProcessWatcher(sources);
-
-        watcher.ActiveProcessName = supervisor.ActiveProcessName;
-        watcher.Changed += (_, e) =>
+        host.StateChanged += () =>
         {
-            if (e.Started)
-            {
-                var active = supervisor.Start(e.Source, e.ProcessName);
-                if (active is not null)
-                {
-                    Console.WriteLine($"{DateTime.Now:HH:mm:ss} {e.ProcessName} running — " +
-                        $"forwarding {e.Source.Title} " +
-                        $"(0.0.0.0:{e.Source.DefaultPort} -> {o.Endpoint})");
-                }
-            }
-            else
-            {
-                supervisor.Stop();
-                Console.WriteLine($"{DateTime.Now:HH:mm:ss} {e.ProcessName} exited — source stopped, watching again");
-            }
-        };
-        watcher.Start();
-
-        // game already open when the app starts
-        var running = watcher.CheckOnce();
-        if (running is { } hit)
-        {
-            var active = supervisor.Start(hit.source, hit.process);
+            var active = host.ActiveSource;
             if (active is not null)
-                Console.WriteLine($"{DateTime.Now:HH:mm:ss} {hit.process} already running — " +
-                    $"forwarding {hit.source.Title} (0.0.0.0:{hit.source.DefaultPort} -> {o.Endpoint})");
-        }
+                Console.WriteLine($"{DateTime.Now:HH:mm:ss} forwarding {active.Title} " +
+                    $"({host.ActiveProcessLabel}) (0.0.0.0:{active.DefaultPort} -> {host.Options.Output})");
+            else
+                Console.WriteLine($"{DateTime.Now:HH:mm:ss} source stopped, watching again");
+        };
+        host.Start();
 
-        if (o.Stats) StatsLoop(() => supervisor.Current?.Forwarder, ct);
+        if (o.Stats) StatsLoop(() => host.ActiveForwarder, ct);
         else ct.WaitHandle.WaitOne();
-        supervisor.Stop();
+        host.Stop();
         Console.WriteLine("stopped.");
         return 0;
     }

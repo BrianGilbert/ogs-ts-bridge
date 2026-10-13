@@ -51,7 +51,7 @@ static class Fixtures
             DrivetrainType = 2u, NumCylinders = NumCyl,
         };
         var buf = new byte[ForzaSledSource.PacketSize];
-        System.Runtime.InteropServices.MemoryMarshal.Write(buf.AsSpan(), ref p);
+        System.Runtime.InteropServices.MemoryMarshal.Write(buf.AsSpan(), in p);
         return buf;
     }
 
@@ -67,7 +67,7 @@ static class Fixtures
             Roll = roll, Pitch = pitch, Yaw = yaw,
         };
         var buf = new byte[BeamNgSource.PacketSize];
-        System.Runtime.InteropServices.MemoryMarshal.Write(buf.AsSpan(), ref p);
+        System.Runtime.InteropServices.MemoryMarshal.Write(buf.AsSpan(), in p);
         return buf;
     }
 }

@@ -43,6 +43,11 @@ public sealed class GameProcessWatcher : IDisposable
     /// the active source is not re-detected as a new start.</summary>
     public Func<string?> ActiveProcessName { get; set; } = static () => null;
 
+    /// <summary>When true, scanning and exit detection stop entirely —
+    /// set while a manually pinned session runs (it ends when the user
+    /// stops it, not when a process exits) or when auto-watch is off.</summary>
+    public volatile bool Paused;
+
     public GameProcessWatcher(IReadOnlyList<ILegacySource> sources,
                               TimeSpan? pollInterval = null)
     {
@@ -74,28 +79,31 @@ public sealed class GameProcessWatcher : IDisposable
     {
         while (!_cts.IsCancellationRequested)
         {
-            try
+            if (!Paused)
             {
-                var active = ActiveProcessName();
-                if (active is null)
+                try
                 {
-                    var hit = CheckOnce();
-                    if (hit is { } found)
-                        Changed?.Invoke(this,
-                            new ChangeEventArgs(found.source, found.process, started: true));
+                    var active = ActiveProcessName();
+                    if (active is null)
+                    {
+                        var hit = CheckOnce();
+                        if (hit is { } found)
+                            Changed?.Invoke(this,
+                                new ChangeEventArgs(found.source, found.process, started: true));
+                    }
+                    else if (!Snapshot().Contains(active))
+                    {
+                        // game process gone — supervisor stops the source; it
+                        // will re-arm detection once it clears ActiveProcessName
+                        Changed?.Invoke(this, new ChangeEventArgs(null!, active, started: false));
+                    }
                 }
-                else if (!Snapshot().Contains(active))
+                catch (Exception ex) when (ex is InvalidOperationException or SystemException)
                 {
-                    // game process gone — supervisor stops the source; it
-                    // will re-arm detection once it clears ActiveProcessName
-                    Changed?.Invoke(this, new ChangeEventArgs(null!, active, started: false));
+                    // process list hiccups (access denied on some system procs) — keep watching
                 }
             }
-            catch (Exception ex) when (ex is InvalidOperationException or SystemException)
-            {
-                // process list hiccups (access denied on some system procs) — keep watching
-            }
-            _cts.Token.WaitHandle.WaitOne(_pollInterval);
+            if (_cts.Token.WaitHandle.WaitOne(_pollInterval)) break;
         }
     }
 

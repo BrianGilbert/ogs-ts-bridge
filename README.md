@@ -23,7 +23,19 @@ game (legacy telemetry)                     any OGSA-TS receiver
 └───────────────────────────────────────────────────────────────┘
 ```
 
-Community & support: [Discord](https://discord.gg/tseF4Q6U99)
+Community & support: [Discord](https://discord.gg/tseF4Q6U99) · [Support development](https://github.com/sponsors/BrianGilbert)
+
+Two frontends share one engine:
+
+- **GUI** (`OgsaTsBridge.Gui.exe`, WPF) — shows which game is being
+  translated with live rates and this app's own latency percentiles,
+  lets you manually pick a game when auto-detection finds nothing, edits
+  the output endpoint, and carries the donation links. The UI only ever
+  reads snapshots and issues supervisor commands — nothing it does can
+  touch the forward path.
+- **Console** (`ogsa-ts-bridge`) — same engine, for headless/service use.
+
+![GUI](docs/gui.png)
 
 ## Quick start
 
@@ -47,7 +59,8 @@ The status line's `fwd us` percentiles measure this app's own processing
 (receive-syscall return → send-syscall return) — the only latency it adds
 to the chain.
 
-Pin a source manually with `--source`:
+Pin a source manually with `--source` (the console equivalent of the
+GUI's "Forward this game"):
 
 ```bash
 dotnet run --project src/OgsaTsBridge -- run --source beamng
@@ -144,7 +157,9 @@ angular rate consistently). To verify with a real game:
 
 | Path | Contents |
 |---|---|
-| `src/OgsaTsBridge` | The app: `Program` (CLI, auto supervisor), `Forwarder` (hot path), `OgsaSession` (frame writer), `GameProcessWatcher`, `UdpInputSocket`, `LatencyMeter`, `OgsaMath`, `Sources/*` |
+| `src/OgsaTsBridge.Core` | The engine: `Forwarder` (hot path), `OgsaSession` (frame writer), `EngineHost` (control surface for GUI/console), `GameProcessWatcher`, `AutoSupervisor`, `UdpInputSocket`, `LatencyMeter`, `OgsaMath`, `Sources/*` |
+| `src/OgsaTsBridge` | Console host (CLI, auto mode, pinned mode) |
+| `src/OgsaTsBridge.Gui` | WPF desktop shell over the engine |
 | `OgsaTelemetry/` | Vendored engine-agnostic core from [ogsa-ts-dotnet] (envelope, UDP sender, units, generated schema) — `sync-core.ps1` refreshes it |
 | `tests/OgsaTsBridge.Tests` | xunit: Euler-convention locks, wire-level translation decode checks, and real-UDP loopback tests that forge legacy packets and assert the OGSA-TS output (values *and* 1:1 cadence) |
 
@@ -169,7 +184,9 @@ angular rate consistently). To verify with a real game:
 ```bash
 dotnet build
 dotnet test
-pwsh ./sync-core.ps1   # re-vendor the core after ogsa-ts-dotnet changes
+dotnet run --project src/OgsaTsBridge.Gui   # desktop app (Windows)
+dotnet run --project src/OgsaTsBridge -- run # headless engine
+pwsh ./sync-core.ps1                         # re-vendor the core after ogsa-ts-dotnet changes
 ```
 
 ## License

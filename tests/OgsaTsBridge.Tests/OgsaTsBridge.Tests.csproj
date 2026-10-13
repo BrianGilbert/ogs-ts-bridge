@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\OgsaTsBridge\OgsaTsBridge.csproj" />
+    <ProjectReference Include="..\..\src\OgsaTsBridge.Core\OgsaTsBridge.Core.csproj" />
   </ItemGroup>
 
 </Project>
