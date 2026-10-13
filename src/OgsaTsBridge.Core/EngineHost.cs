@@ -39,6 +39,10 @@ public sealed class EngineHost : IDisposable
     /// <summary>Raised on activation, deactivation, and endpoint changes.</summary>
     public event Action? StateChanged;
 
+    /// <summary>Last activation failure, if any (bind errors etc.) —
+    /// cleared on the next successful start. Displayed by hosts.</summary>
+    public string? LastError { get; private set; }
+
     public EngineHost(EngineOptions options)
     {
         _options = options;
@@ -97,7 +101,18 @@ public sealed class EngineHost : IDisposable
             lock (_gate)
             {
                 if (_supervisor is null || _manual) return;
-                _supervisor.Start(e.Source, e.ProcessName);
+                try
+                {
+                    if (_supervisor.Start(e.Source, e.ProcessName) is not null)
+                        LastError = null;
+                }
+                catch (InputPortException ex)
+                {
+                    // port unavailable: stay idle, keep watching — the
+                    // watcher retries next poll and recovers once the
+                    // blocker is gone. Surface the diagnostics to hosts.
+                    LastError = ex.Message;
+                }
             }
         }
         else
@@ -118,9 +133,21 @@ public sealed class EngineHost : IDisposable
             if (_supervisor?.Current is not null) return false;
             _manual = true;
             if (_watcher is not null) _watcher.Paused = true;
-            var started = _supervisor?.Start(source, "(manual selection)") is not null;
-            if (!started) _manual = false;
-            return started;
+            try
+            {
+                var started = _supervisor?.Start(source, "(manual selection)") is not null;
+                if (started) LastError = null;
+                else _manual = false;
+                return started;
+            }
+            catch (InputPortException ex)
+            {
+                _manual = false;
+                if (_watcher is not null) _watcher.Paused = !_options.AutoWatch;
+                LastError = ex.Message;
+                StateChanged?.Invoke();
+                return false;
+            }
         }
     }
 

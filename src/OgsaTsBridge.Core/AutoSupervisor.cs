@@ -61,7 +61,26 @@ public sealed class AutoSupervisor : IDisposable
             if (_source is not null) return null; // one game at a time
             _source = source;
             _processName = processName;
+            try
+            {
+                Build(source);
+            }
+            catch
+            {
+                // construction failed (e.g. input port unavailable):
+                // unwind ALL half-state — otherwise the watcher sees an
+                // "active" process label with no session and stops
+                // retrying, wedging the app until the game exits.
+                Unwind();
+                throw;
+            }
+            _thread!.Start();
+            return new ActiveSource(source, _forwarder!);
+        }
+    }
 
+    void Build(ILegacySource source)
+    {
             _cts = new CancellationTokenSource();
             _sender = new TelemetrySender(
                 _output.Address.ToString(), _output.Port, _ttl, loopback: true);
@@ -81,26 +100,8 @@ public sealed class AutoSupervisor : IDisposable
             }
             else
             {
-                try
-                {
-                    _input = new UdpInputSocket(
-                        new IPEndPoint(IPAddress.Any, source.DefaultPort));
-                }
-                catch (InputPortException ex)
-                {
-                    // surface on any thread (watcher/UI) without crashing:
-                    // clean up, stay idle, keep watching
-                    Console.Error.WriteLine(ex.Message);
-                    _session.Dispose();
-                    _sender.Dispose();
-                    _cts.Dispose();
-                    _source = null;
-                    _processName = null;
-                    _session = null;
-                    _sender = null;
-                    _cts = null;
-                    return null;
-                }
+                _input = new UdpInputSocket(
+                    new IPEndPoint(IPAddress.Any, source.DefaultPort));
                 var udp = new Forwarder(source, _input, _session);
                 _forwarder = udp;
                 _thread = new Thread(() => udp.Run(_cts.Token))
@@ -110,9 +111,25 @@ public sealed class AutoSupervisor : IDisposable
                     Priority = _priority,
                 };
             }
-            _thread.Start();
-            return new ActiveSource(source, _forwarder);
-        }
+    }
+
+    /// <summary>Disposes partial construction state and clears every
+    /// field — shared by Stop and failed Start.</summary>
+    void Unwind()
+    {
+        _cts?.Cancel();
+        _input?.Dispose();
+        if (_thread?.IsAlive == true) { try { _thread.Join(2000); } catch { } }
+        _session?.Dispose();     // also disposes the sender
+        _cts?.Dispose();
+        _source = null;
+        _processName = null;
+        _input = null;
+        _sender = null;
+        _session = null;
+        _forwarder = null;
+        _thread = null;
+        _cts = null;
     }
 
     public void Stop()
@@ -120,19 +137,7 @@ public sealed class AutoSupervisor : IDisposable
         lock (_gate)
         {
             if (_source is null) return;
-            _cts!.Cancel();
-            _input?.Dispose();      // interrupts the blocked receive (UDP path)
-            try { _thread!.Join(2000); } catch { }
-            _session!.Dispose();     // also disposes the sender
-            _cts.Dispose();
-            _source = null;
-            _processName = null;
-            _input = null;
-            _sender = null;
-            _session = null;
-            _forwarder = null;
-            _thread = null;
-            _cts = null;
+            Unwind();
         }
     }
 

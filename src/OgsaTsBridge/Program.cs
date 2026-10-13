@@ -253,6 +253,8 @@ run options:
             if (active is not null)
                 Console.WriteLine($"{DateTime.Now:HH:mm:ss} forwarding {active.Title} " +
                     $"({host.ActiveProcessLabel}) (0.0.0.0:{active.DefaultPort} -> {host.Options.Output})");
+            else if (host.LastError is { } error)
+                Console.WriteLine($"{DateTime.Now:HH:mm:ss} activation failed:\n{error}");
             else
                 Console.WriteLine($"{DateTime.Now:HH:mm:ss} source stopped, watching again");
         };

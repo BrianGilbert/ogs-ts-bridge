@@ -26,6 +26,7 @@ public partial class MainWindow : Window
     readonly DispatcherTimer _ui;
     System.Windows.Forms.NotifyIcon? _tray;
     bool _hiddenOnce;
+    string? _lastErrorShown;
 
     long _lastIn, _lastOut, _lastRejected;
 
@@ -124,6 +125,19 @@ public partial class MainWindow : Window
                 ? $"manually selected · listening 0.0.0.0:{active.DefaultPort} → {_host.Options.Output}"
                 : $"detected {label} · listening 0.0.0.0:{active.DefaultPort} → {_host.Options.Output}";
         }
+        else if (_host.LastError is { } error)
+        {
+            StatusDot.Fill = Brushes.OrangeRed;
+            StatusText.Text = "Game detected — could not start forwarding";
+            StatusDetail.Text = error;
+            if (_lastErrorShown != error)
+            {
+                _lastErrorShown = error;
+                _tray?.ShowBalloonTip(5000, "OGSA-TS Bridge",
+                    "Game detected but the input port is unavailable — open the window for details.",
+                    System.Windows.Forms.ToolTipIcon.Error);
+            }
+        }
         else
         {
             StatusDot.Fill = Brushes.Gray;
@@ -131,6 +145,7 @@ public partial class MainWindow : Window
             StatusDetail.Text = _host.AutoWatch
                 ? "start a game and telemetry will flow automatically, or pick one below"
                 : "pick a game below to forward it";
+            _lastErrorShown = null;
         }
 
         StartManual.IsEnabled = active is null && SourceList.SelectedItem is SourceRow;
@@ -178,9 +193,15 @@ public partial class MainWindow : Window
     {
         if (SourceList.SelectedItem is not SourceRow row) return;
         if (!_host.StartManual(row.Source))
-            MessageBox.Show(this,
-                "A session is already active — stop it first.",
-                "Already forwarding", MessageBoxButton.OK, MessageBoxImage.Information);
+        {
+            if (_host.LastError is { } error)
+                MessageBox.Show(this, error, "Could not start forwarding",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            else
+                MessageBox.Show(this,
+                    "A session is already active — stop it first.",
+                    "Already forwarding", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
         RefreshAll();
     }
 
