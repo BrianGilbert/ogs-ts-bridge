@@ -15,8 +15,12 @@ jobs:
   build-test:
     runs-on: windows-latest   # WPF (net8.0-windows) + shared-memory sources
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: Open-Game-Standards-Alliance/OGSA-Telemetry-Standard
+          path: OGSA-Telemetry-Standard
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 8.0.x
       - name: Build
@@ -33,7 +37,7 @@ jobs:
         shell: pwsh
       - name: Upload artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ogsa-ts-bridge-dist
           path: dist/
@@ -46,12 +50,12 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ogsa-ts-bridge-dist
       - name: CalVer tag
@@ -76,7 +80,7 @@ jobs:
           Compress-Archive -Path 'OgsaTsBridge.Gui.exe','ogsa-ts-bridge.exe','*.dll','*.json' -DestinationPath $name
           "zip=$name" >> $env:GITHUB_ENV
       - name: Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.calver.outputs.tag }}
           name: ${{ steps.calver.outputs.tag }}
