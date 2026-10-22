@@ -275,7 +275,7 @@ public sealed class OgsaSession : IDisposable
             SessionStartUnixUs = _sessionStartTicks / 10, // .NET ticks (100 ns) → µs
             Environment =
             {
-                AirDensity = 1.225f, Temperature = 20f, Pressure = 1.01325f,
+                AirDensity = 1.225f, Temperature = 20f, Pressure = 101325f, // Pa
                 Gravity = 9.81f, Medium = Schema.ContactMedium.Asphalt,
             },
             Objects = new List<Schema.ObjectDescriptor>
