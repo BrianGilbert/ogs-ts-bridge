@@ -78,7 +78,7 @@ public sealed class AcFamilySource : ILegacySource
 
     public void Declare(OgsaSession session)
     {
-        session.DeclareObject("car", CapnpGen.ObjectType.vehicle, "Kunos vehicle");
+        session.DeclareObject("car", Ogsa.Telemetry.Schema.ObjectType.Vehicle, "Kunos vehicle");
         float hz = (float)(_wheelbase * 0.5), hx = (float)(_track * 0.5);
         session.AddWheel("wheel.fl", new Vector3(-hx, 0, hz), (float)_radius, true, true);
         session.AddWheel("wheel.fr", new Vector3(+hx, 0, hz), (float)_radius, true, true);
@@ -113,10 +113,10 @@ public sealed class AcFamilySource : ILegacySource
             new Vector3(F(d, 44), F(d, 52), F(d, 48)) * 9.81f,
             default);
 
-        session.SetWheel(0, F(d, 56),     F(d, 184), CapnpGen.ContactMedium.asphalt);
-        session.SetWheel(1, F(d, 60),     F(d, 188), CapnpGen.ContactMedium.asphalt);
-        session.SetWheel(2, F(d, 64),     F(d, 192), CapnpGen.ContactMedium.asphalt);
-        session.SetWheel(3, F(d, 68),     F(d, 196), CapnpGen.ContactMedium.asphalt);
+        session.SetWheel(0, F(d, 56),     F(d, 184), Ogsa.Telemetry.Schema.ContactMedium.Asphalt);
+        session.SetWheel(1, F(d, 60),     F(d, 188), Ogsa.Telemetry.Schema.ContactMedium.Asphalt);
+        session.SetWheel(2, F(d, 64),     F(d, 192), Ogsa.Telemetry.Schema.ContactMedium.Asphalt);
+        session.SetWheel(3, F(d, 68),     F(d, 196), Ogsa.Telemetry.Schema.ContactMedium.Asphalt);
 
         session.SetChannel(_rpm, I(d, 20));
         session.SetChannel(_throttle, F(d, 4));

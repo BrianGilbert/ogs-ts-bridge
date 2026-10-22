@@ -110,7 +110,7 @@ sealed class OgsaReceiver : IDisposable
     }
 
     static Capnp.DeserializerState Decode(ReadOnlyMemory<byte> payload)
-        => Capnp.DeserializerState.CreateRoot(Envelope.DecodeMessage(payload.Span));
+        => Capnp.DeserializerState.CreateRoot(MessageDecoder.DecodeMessage(payload.Span));
 
     public void Dispose()
     {

@@ -10,6 +10,8 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <!-- decodes what the app sends (Vendored/: CapnpGen readers, synced by
+         sync-core.ps1) — test-only; the app ships no Cap'n Proto runtime -->
     <PackageReference Include="Capnp.Net.Runtime" Version="1.3.118" />
   </ItemGroup>
 

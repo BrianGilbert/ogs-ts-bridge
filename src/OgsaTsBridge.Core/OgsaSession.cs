@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using Ogsa.Telemetry;
+using Ogsa.Telemetry.Wire;
+using Schema = Ogsa.Telemetry.Schema;
 
 namespace OgsaTsBridge
 {
@@ -17,8 +19,8 @@ public readonly struct OgsaChannel
 
 /// <summary>
 /// Latency-first OGSA-TS writer: declaration phase builds the DiscoveryFrame
-/// once; every tick reuses cached Cap'n Proto object graphs, rewrites the
-/// values in place, serializes into a fresh small message and hands it to
+/// once; every tick reuses cached schema-writer graphs, rewrites the
+/// values in place, encodes them (canonical OGSA encoding) and hands it to
 /// the transport immediately — one datagram per input packet, no timers, no
 /// queues, no cross-thread hops. The caller owns the thread (the legacy
 /// receive thread) and the clock (a monotonic seconds value).
@@ -41,10 +43,10 @@ public sealed class OgsaSession : IDisposable
     readonly long _sessionStartTicks = DateTimeOffset.UtcNow.UtcTicks;
 
     // declaration state (locked at Start)
-    readonly List<CapnpGen.ChannelDescriptor> _descriptors = new();
-    readonly List<CapnpGen.DrivePointDescriptor> _wheelDescriptors = new();
+    readonly List<Schema.ChannelDescriptor> _descriptors = new();
+    readonly List<Schema.DrivePointDescriptor> _wheelDescriptors = new();
     string _objectName = "player";
-    CapnpGen.ObjectType _objectType = CapnpGen.ObjectType.vehicle;
+    Schema.ObjectType _objectType = Schema.ObjectType.Vehicle;
     string _typeLabel = "";
     bool _locked;
 
@@ -60,15 +62,15 @@ public sealed class OgsaSession : IDisposable
     readonly bool[] _isBool = new bool[64];
     int _channelCount;
 
-    // wheel state cache + per-tick dirty list
-    readonly List<CapnpGen.WheelState> _wheels = new();
+    // wheel state cache (one reused drive point per wheel) + per-tick dirty list
+    readonly List<Schema.DrivePoint> _wheels = new();
     readonly bool[] _wheelDirty = new bool[16];
-    readonly List<CapnpGen.DrivePoint> _drivePoints = new(); // reused list
+    readonly List<Schema.DrivePoint> _drivePoints = new(); // reused list
 
     // cached wire graphs
-    CapnpGen.DiscoveryFrame? _discoveryFrame;
-    CapnpGen.MotionFrame? _motionFrame;
-    List<CapnpGen.ChannelValue>? _motionValues;
+    Schema.DiscoveryFrame? _discoveryFrame;
+    Schema.MotionFrame? _motionFrame;
+    List<Schema.ChannelValue>? _motionValues;
 
     double _anchor = double.NaN;       // host clock value at Start
     double _lastDiscovery = double.NegativeInfinity;
@@ -92,7 +94,7 @@ public sealed class OgsaSession : IDisposable
 
     // ---- declaration phase (before Start) ----
 
-    public void DeclareObject(string name, CapnpGen.ObjectType type, string typeLabel = "")
+    public void DeclareObject(string name, Schema.ObjectType type, string typeLabel = "")
     {
         LockCheck("DeclareObject");
         _objectName = name; _objectType = type; _typeLabel = typeLabel;
@@ -103,16 +105,19 @@ public sealed class OgsaSession : IDisposable
     {
         LockCheck("AddChannel");
         var h = NewChannel(boolean: false);
-        _descriptors.Add(new CapnpGen.ChannelDescriptor
+        var descriptor = new Schema.ChannelDescriptor
         {
             Id = (ushort)h.Id,
             Name = name,
             Unit = unit,
             Description = description,
-            Range = double.IsNaN(min) || double.IsNaN(max)
-                ? null!
-                : new CapnpGen.Range { Min = min, Max = max },
-        });
+        };
+        if (!double.IsNaN(min) && !double.IsNaN(max))
+        {
+            var range = descriptor.InitRange();
+            range.Min = min; range.Max = max;
+        }
+        _descriptors.Add(descriptor);
         return h;
     }
 
@@ -120,7 +125,7 @@ public sealed class OgsaSession : IDisposable
     {
         LockCheck("AddBooleanChannel");
         var h = NewChannel(boolean: true);
-        _descriptors.Add(new CapnpGen.ChannelDescriptor
+        _descriptors.Add(new Schema.ChannelDescriptor
         {
             Id = (ushort)h.Id,
             Name = name,
@@ -138,22 +143,22 @@ public sealed class OgsaSession : IDisposable
     {
         LockCheck("AddWheel");
         int id = _wheelDescriptors.Count;
-        _wheelDescriptors.Add(new CapnpGen.DrivePointDescriptor
+        var descriptor = new Schema.DrivePointDescriptor
         {
             Id = (ushort)id,
             Name = name,
-            Offset = new CapnpGen.Vector3 { X = offset.X, Y = offset.Y, Z = offset.Z },
-            Wheel = new CapnpGen.WheelSpec
-            {
-                Radius = radius, Driven = driven, Steered = steered,
-                Suspension = new CapnpGen.SuspensionSpec
-                {
-                    Travel = new CapnpGen.Range { Min = travelMin, Max = travelMax },
-                    Stiffness = 65000f, Damping = 5000f,
-                },
-            },
-        });
-        _wheels.Add(new CapnpGen.WheelState { Contact = CapnpGen.ContactMedium.asphalt });
+            Offset = { X = offset.X, Y = offset.Y, Z = offset.Z },
+        };
+        var spec = descriptor.InitWheel();
+        spec.Radius = radius; spec.Driven = driven; spec.Steered = steered;
+        var suspension = spec.InitSuspension();
+        suspension.Travel.Min = travelMin; suspension.Travel.Max = travelMax;
+        suspension.Stiffness = 65000f; suspension.Damping = 5000f;
+        _wheelDescriptors.Add(descriptor);
+
+        var point = new Schema.DrivePoint { Id = (ushort)id };
+        point.InitWheel().Contact = Schema.ContactMedium.Asphalt;
+        _wheels.Add(point);
         return id;
     }
 
@@ -224,9 +229,9 @@ public sealed class OgsaSession : IDisposable
     }
 
     public void SetWheel(int index, float slip, float compression,
-                         CapnpGen.ContactMedium contact)
+                         Schema.ContactMedium contact)
     {
-        var w = _wheels[index];
+        var w = _wheels[index].InitWheel(); // the existing state: no allocation
         w.Slip = slip;
         w.Compression = compression;
         w.Contact = contact;
@@ -247,10 +252,7 @@ public sealed class OgsaSession : IDisposable
         if (nowSeconds - _lastMotion < _minMotionInterval)
             return;
 
-        var mb = Capnp.MessageBuilder.Create(512);
-        BuildMotion(nowSeconds).serialize(mb.BuildRoot<CapnpGen.MotionFrame.WRITER>());
-        if (_sink is not null) _sink(FrameType.Motion, Envelope.EncodeDatagram(FrameType.Motion, mb.Frame.Segments));
-        else _sender!.Send(FrameType.Motion, mb);
+        Send(FrameType.Motion, BuildMotion(nowSeconds));
         _lastMotion = nowSeconds;
     }
 
@@ -266,17 +268,17 @@ public sealed class OgsaSession : IDisposable
 
     void SendDiscovery(double nowSeconds)
     {
-        _discoveryFrame ??= new CapnpGen.DiscoveryFrame
+        _discoveryFrame ??= new Schema.DiscoveryFrame
         {
             SchemaVersion = 1,
             GameName = _gameName,
             SessionStartUnixUs = _sessionStartTicks / 10, // .NET ticks (100 ns) → µs
-            Environment = new CapnpGen.Environment
+            Environment =
             {
                 AirDensity = 1.225f, Temperature = 20f, Pressure = 1.01325f,
-                Gravity = 9.81f, Medium = CapnpGen.ContactMedium.asphalt,
+                Gravity = 9.81f, Medium = Schema.ContactMedium.Asphalt,
             },
-            Objects = new List<CapnpGen.ObjectDescriptor>
+            Objects = new List<Schema.ObjectDescriptor>
             {
                 new()
                 {
@@ -285,59 +287,48 @@ public sealed class OgsaSession : IDisposable
                     TypeLabel = _typeLabel,
                     Primary = true,
                     Location = "local",
-                    ReferencePoint = new CapnpGen.NamedPoint
-                        { Name = "origin", Position = new CapnpGen.Vector3() },
+                    ReferencePoint = { Name = "origin" },
                     DrivePoints = _wheelDescriptors,
                     Channels = _descriptors,
                 },
             },
         };
-        var mb = Capnp.MessageBuilder.Create(512);
-        _discoveryFrame.serialize(mb.BuildRoot<CapnpGen.DiscoveryFrame.WRITER>());
-        if (_sink is not null) _sink(FrameType.Discovery, Envelope.EncodeDatagram(FrameType.Discovery, mb.Frame.Segments));
-        else _sender!.Send(FrameType.Discovery, mb);
+        Send(FrameType.Discovery, _discoveryFrame);
         _lastDiscovery = nowSeconds;
     }
 
-    // Reuses the cached object graph; union discriminants rewrite on
-    // assignment so a mutated graph serializes exactly like a fresh one
-    // (same technique as the upstream TelemetryPublisher).
-    CapnpGen.MotionFrame BuildMotion(double nowSeconds)
+    void Send(FrameType type, WireStruct frame)
+    {
+        var datagram = CanonicalEncoder.EncodeDatagram(type, frame);
+        if (_sink is not null) _sink(type, datagram);
+        else _sender!.Send(datagram);
+    }
+
+    // Reuses the cached object graph; setting a value re-selects its union
+    // variant, so a mutated graph encodes exactly like a fresh one (same
+    // technique as the upstream TelemetryPublisher).
+    Schema.MotionFrame BuildMotion(double nowSeconds)
     {
         if (_motionFrame is null)
         {
-            var values = new List<CapnpGen.ChannelValue>(_channelCount);
+            var values = new List<Schema.ChannelValue>(_channelCount);
             for (int i = 0; i < _channelCount; i++)
-                values.Add(new CapnpGen.ChannelValue { Id = (ushort)i });
+                values.Add(new Schema.ChannelValue { Id = (ushort)i });
             _motionValues = values;
-
-            var o = new CapnpGen.MotionObject
+            _motionFrame = new Schema.MotionFrame
             {
-                Name = _objectName,
-                Position = new CapnpGen.Vector3(),
-                Orientation = new CapnpGen.Quaternion(),
-                Kinematics = new CapnpGen.Kinematics
+                Objects = new List<Schema.MotionObject>
                 {
-                    Velocity = new CapnpGen.Vector3(),
-                    Acceleration = new CapnpGen.Vector3(),
+                    new() { Name = _objectName, Channels = values, DrivePoints = _drivePoints },
                 },
             };
-            if (values.Count > 0) o.Channels = values;
-            _motionFrame = new CapnpGen.MotionFrame
-            {
-                Objects = new List<CapnpGen.MotionObject> { o },
-            };
         }
 
-        var obj = _motionFrame.Objects[0];
-        if (_hasPosition)
-        {
-            obj.Position!.X = _position.X;
-            obj.Position.Y = _position.Y;
-            obj.Position.Z = _position.Z;
-        }
-        else obj.Position = null!;
-        obj.Orientation!.X = _orientation.X;
+        var obj = _motionFrame.Objects![0];
+        // an absent position encodes as zeros — what receivers read for it anyway
+        var p = _hasPosition ? _position : default;
+        obj.Position.X = p.X; obj.Position.Y = p.Y; obj.Position.Z = p.Z;
+        obj.Orientation.X = _orientation.X;
         obj.Orientation.Y = _orientation.Y;
         obj.Orientation.Z = _orientation.Z;
         obj.Orientation.W = _orientation.W;
@@ -345,49 +336,32 @@ public sealed class OgsaSession : IDisposable
         switch (_dyn)
         {
             case Dyn.Kinematics:
-                obj.Kinematics ??= new CapnpGen.Kinematics
-                {
-                    Velocity = new CapnpGen.Vector3(),
-                    Acceleration = new CapnpGen.Vector3(),
-                };
-                obj.Kinematics.Velocity.X = _velocity.X;
-                obj.Kinematics.Velocity.Y = _velocity.Y;
-                obj.Kinematics.Velocity.Z = _velocity.Z;
-                obj.Kinematics.Acceleration.X = _acceleration.X;
-                obj.Kinematics.Acceleration.Y = _acceleration.Y;
-                obj.Kinematics.Acceleration.Z = _acceleration.Z;
+                var k = obj.InitKinematics();
+                k.Velocity.X = _velocity.X; k.Velocity.Y = _velocity.Y; k.Velocity.Z = _velocity.Z;
+                k.Acceleration.X = _acceleration.X; k.Acceleration.Y = _acceleration.Y;
+                k.Acceleration.Z = _acceleration.Z;
                 break;
             case Dyn.BodyDynamics:
-                obj.BodyDynamics ??= new CapnpGen.BodyDynamics
-                {
-                    SpecificForce = new CapnpGen.Vector3(),
-                    AngularVelocity = new CapnpGen.Vector3(),
-                };
-                obj.BodyDynamics.SpecificForce.X = _specificForce.X;
-                obj.BodyDynamics.SpecificForce.Y = _specificForce.Y;
-                obj.BodyDynamics.SpecificForce.Z = _specificForce.Z;
-                obj.BodyDynamics.AngularVelocity.X = _angularVelocity.X;
-                obj.BodyDynamics.AngularVelocity.Y = _angularVelocity.Y;
-                obj.BodyDynamics.AngularVelocity.Z = _angularVelocity.Z;
+                var bd = obj.InitBodyDynamics();
+                bd.SpecificForce.X = _specificForce.X; bd.SpecificForce.Y = _specificForce.Y;
+                bd.SpecificForce.Z = _specificForce.Z;
+                bd.AngularVelocity.X = _angularVelocity.X; bd.AngularVelocity.Y = _angularVelocity.Y;
+                bd.AngularVelocity.Z = _angularVelocity.Z;
                 break;
             default:
-                obj.which = CapnpGen.MotionObject.WHICH.NoDynamics; // union default — dynamics absent
+                obj.SetNoDynamics(); // union default — dynamics absent
                 break;
         }
 
-        // per-wheel state: only wheels touched since the last tick ride the frame
+        // per-wheel state: only wheels touched since the last tick ride the
+        // frame (an empty list encodes as null)
         _drivePoints.Clear();
         for (int i = 0; i < _wheels.Count; i++)
         {
             if (!_wheelDirty[i]) continue;
-            _drivePoints.Add(new CapnpGen.DrivePoint
-            {
-                Id = (ushort)i,
-                Wheel = _wheels[i],
-            });
+            _drivePoints.Add(_wheels[i]);
             _wheelDirty[i] = false;
         }
-        obj.DrivePoints = _drivePoints.Count > 0 ? _drivePoints : null!;
 
         if (_motionValues is not null)
             for (int i = 0; i < _channelCount; i++)

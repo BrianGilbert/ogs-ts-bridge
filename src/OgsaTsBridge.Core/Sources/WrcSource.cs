@@ -59,7 +59,7 @@ public sealed class WrcSource : ILegacySource
 
     public void Declare(OgsaSession session)
     {
-        session.DeclareObject("car", CapnpGen.ObjectType.vehicle, "WRC rally car");
+        session.DeclareObject("car", Ogsa.Telemetry.Schema.ObjectType.Vehicle, "WRC rally car");
         _rpm       = session.AddChannel("engine.rpm", "rpm", "Current engine rpm");
         _rpmMax    = session.AddChannel("engine.rpmMax", "rpm", "Engine redline");
         _speed     = session.AddChannel("vehicle.speed", "m/s", "Speed over ground");

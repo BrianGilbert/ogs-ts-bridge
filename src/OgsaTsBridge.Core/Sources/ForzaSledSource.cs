@@ -108,7 +108,7 @@ public sealed class ForzaSledSource : ILegacySource
 
     public void Declare(OgsaSession session)
     {
-        session.DeclareObject("car", CapnpGen.ObjectType.vehicle, "Forza vehicle");
+        session.DeclareObject("car", Ogsa.Telemetry.Schema.ObjectType.Vehicle, "Forza vehicle");
 
         float hz = (float)(_wheelbase * 0.5), hx = (float)(_track * 0.5);
         session.AddWheel("wheel.fl", new Vector3(-hx, 0, hz), (float)_radius, driven: true, steered: true);
@@ -164,7 +164,7 @@ public sealed class ForzaSledSource : ILegacySource
 
     static void SetWheel(OgsaSession session, int i, float slip, float compression, uint rumble) =>
         session.SetWheel(i, slip, compression,
-            rumble != 0 ? CapnpGen.ContactMedium.rumbleStrip
-                        : CapnpGen.ContactMedium.asphalt);
+            rumble != 0 ? Ogsa.Telemetry.Schema.ContactMedium.RumbleStrip
+                        : Ogsa.Telemetry.Schema.ContactMedium.Asphalt);
 }
 }

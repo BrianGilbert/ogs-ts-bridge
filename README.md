@@ -141,10 +141,11 @@ The whole point of this app is to not be visible in the latency budget:
   input:output.
 - **Zero-allocation parse.** `MemoryMarshal.Read<T>` over the receive
   buffer — no per-packet marshalling, no struct copies to the heap.
-- **Cached wire graphs.** The Cap'n Proto object graph is built once at
-  declaration and rewritten in place each tick (the upstream
-  `TelemetryPublisher` technique); the only per-frame allocation is one
-  small message buffer.
+- **Cached wire graphs.** The frame graph (the vendored core's generated
+  schema writers) is built once at declaration and rewritten in place
+  each tick (the upstream `TelemetryPublisher` technique); the only
+  per-frame allocations are the encoder's small word buffer and the
+  datagram. No Cap'n Proto runtime ships with the app.
 - **Windows traps handled.** `SIO_UDP_CONNRESET` disabled (ICMP
   port-unreachable replies must not stall receives), `SIO_LOOPBACK_FAST_PATH`
   on loopback binds, 1 MiB receive buffer so bursts queue in the kernel

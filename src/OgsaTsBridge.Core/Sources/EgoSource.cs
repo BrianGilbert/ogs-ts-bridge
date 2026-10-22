@@ -98,7 +98,7 @@ public sealed class EgoSource : ILegacySource, IGamePatcher
 
     public void Declare(OgsaSession session)
     {
-        session.DeclareObject("car", CapnpGen.ObjectType.vehicle, "EGO rally car");
+        session.DeclareObject("car", Ogsa.Telemetry.Schema.ObjectType.Vehicle, "EGO rally car");
         float hz = (float)(_wheelbase * 0.5), hx = (float)(_track * 0.5);
         session.AddWheel("wheel.fl", new Vector3(-hx, 0, hz), (float)_radius, true, true);
         session.AddWheel("wheel.fr", new Vector3(+hx, 0, hz), (float)_radius, true, true);
@@ -156,10 +156,10 @@ public sealed class EgoSource : ILegacySource, IGamePatcher
         var dir = OgsaMath.RhuYUpWorldToOgsa(F(d, 32, be), F(d, 36, be), F(d, 40, be));
         session.SetKinematics(dir * speed, default);
 
-        session.SetWheel(0, 0f, F(d, 76, be), CapnpGen.ContactMedium.asphalt); // packet order bl,br,fl,fr
-        session.SetWheel(1, 0f, F(d, 80, be), CapnpGen.ContactMedium.asphalt);
-        session.SetWheel(2, 0f, F(d, 68, be), CapnpGen.ContactMedium.asphalt);
-        session.SetWheel(3, 0f, F(d, 72, be), CapnpGen.ContactMedium.asphalt);
+        session.SetWheel(0, 0f, F(d, 76, be), Ogsa.Telemetry.Schema.ContactMedium.Asphalt); // packet order bl,br,fl,fr
+        session.SetWheel(1, 0f, F(d, 80, be), Ogsa.Telemetry.Schema.ContactMedium.Asphalt);
+        session.SetWheel(2, 0f, F(d, 68, be), Ogsa.Telemetry.Schema.ContactMedium.Asphalt);
+        session.SetWheel(3, 0f, F(d, 72, be), Ogsa.Telemetry.Schema.ContactMedium.Asphalt);
 
         session.SetChannel(_rpm, F(d, 148, be) / _rpmScale);
         session.SetChannel(_speed, speed);

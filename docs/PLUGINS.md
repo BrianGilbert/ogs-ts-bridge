@@ -76,7 +76,7 @@ public sealed class SmsSource : ILegacySource
 
     public void Declare(OgsaSession session)
     {
-        session.DeclareObject("car", CapnpGen.ObjectType.vehicle, "SMS-engine car");
+        session.DeclareObject("car", Ogsa.Telemetry.Schema.ObjectType.Vehicle, "SMS-engine car");
         _rpm   = session.AddChannel("engine.rpm", "rpm", "Current engine rpm");
         _speed = session.AddChannel("vehicle.speed", "m/s", "Speed over ground");
         // keep discovery under ~1.4 kB — per-wheel data belongs in

@@ -26,7 +26,7 @@ public class SourcesBatchTests
             var d = Sent.Last(x => x.type == FrameType.Motion).datagram;
             Envelope.TryUnwrap(d, out var type, out var payload);
             return CapnpGen.MotionFrame.READER.create(
-                Capnp.DeserializerState.CreateRoot(Envelope.DecodeMessage(payload.Span)));
+                Capnp.DeserializerState.CreateRoot(MessageDecoder.DecodeMessage(payload.Span)));
         }
 
         public CapnpGen.DiscoveryFrame.READER Discovery()
@@ -34,7 +34,7 @@ public class SourcesBatchTests
             var d = Sent.First(x => x.type == FrameType.Discovery).datagram;
             Envelope.TryUnwrap(d, out _, out var payload);
             return CapnpGen.DiscoveryFrame.READER.create(
-                Capnp.DeserializerState.CreateRoot(Envelope.DecodeMessage(payload.Span)));
+                Capnp.DeserializerState.CreateRoot(MessageDecoder.DecodeMessage(payload.Span)));
         }
 
         public float Channel(CapnpGen.DiscoveryFrame.READER disc, CapnpGen.MotionFrame.READER m, string name)

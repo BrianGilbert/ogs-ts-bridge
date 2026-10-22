@@ -72,7 +72,7 @@ public sealed class BeamNgSource : ILegacySource
     }
 
     public void Declare(OgsaSession session) =>
-        session.DeclareObject("car", CapnpGen.ObjectType.vehicle, "BeamNG.drive vehicle");
+        session.DeclareObject("car", Ogsa.Telemetry.Schema.ObjectType.Vehicle, "BeamNG.drive vehicle");
 
     public bool AcceptsDatagram(int length) => length == PacketSize;
 

@@ -7,9 +7,9 @@ using Capnp;
 using Xunit;
 
 /// <summary>Guards the vendored core (OgsaTelemetry/*.cs) against the
-/// standard's conformance corpus: every golden datagram must decode to
-/// its manifest-declared semantics through THIS repo's copy of the
-/// schema. Catches vendoring drift — e.g. the corpus v3 renumbering of
+/// standard's conformance corpus: the vendored writers must encode every
+/// golden datagram byte for byte, and every datagram must decode to its
+/// manifest-declared semantics through the vendored readers. Catches vendoring drift — e.g. the corpus v3 renumbering of
 /// ContactMedium/ObjectType (other → 0, real values shifted, vacuum
 /// added) shipping stale enum ordinals unnoticed. Ported from
 /// ogsa-ts-dotnet ConformanceVectorTests.</summary>
@@ -41,7 +41,26 @@ public class CorpusVectorTests
             Path.Combine(CorpusDir(), "vectors", id + ".hex")));
         var bytes = Convert.FromHexString(hex);
         Assert.True(Envelope.TryUnwrap(bytes, out var type, out var payload), id);
-        return (type, DeserializerState.CreateRoot(Envelope.DecodeMessage(payload.Span)));
+        return (type, DeserializerState.CreateRoot(MessageDecoder.DecodeMessage(payload.Span)));
+    }
+
+    public static TheoryData<string> VectorIds()
+    {
+        var ids = new TheoryData<string>();
+        foreach (var v in ConformanceVectors.All()) ids.Add(v.Id);
+        return ids;
+    }
+
+    /// <summary>Encode direction: the vendored writers must reproduce
+    /// every golden datagram byte for byte.</summary>
+    [Theory]
+    [MemberData(nameof(VectorIds))]
+    public void Encodes_Byte_Identical_To_Corpus(string id)
+    {
+        var hex = string.Concat(File.ReadAllLines(
+            Path.Combine(CorpusDir(), "vectors", id + ".hex")));
+        var vector = ConformanceVectors.All().Single(v => v.Id == id);
+        Assert.Equal(Convert.FromHexString(hex), vector.Encode());
     }
 
     [Fact]

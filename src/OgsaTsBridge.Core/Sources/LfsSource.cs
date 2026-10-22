@@ -64,7 +64,7 @@ public sealed class LfsSource : ILegacySource
     static float F(ReadOnlySpan<byte> d, int off) => MemoryMarshal.Read<float>(d.Slice(off, 4));
 
     public void Declare(OgsaSession session) =>
-        session.DeclareObject("car", CapnpGen.ObjectType.vehicle, "LFS vehicle");
+        session.DeclareObject("car", Ogsa.Telemetry.Schema.ObjectType.Vehicle, "LFS vehicle");
 
     public bool AcceptsDatagram(int length) => length >= 40;
 

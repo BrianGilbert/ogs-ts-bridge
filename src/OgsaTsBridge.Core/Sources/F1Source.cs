@@ -73,7 +73,7 @@ public sealed class F1Source : ILegacySource
 
     public void Declare(OgsaSession session)
     {
-        session.DeclareObject("car", CapnpGen.ObjectType.vehicle, "F1 car");
+        session.DeclareObject("car", Ogsa.Telemetry.Schema.ObjectType.Vehicle, "F1 car");
         _rpm     = session.AddChannel("engine.rpm", "rpm", "Current engine rpm");
         _speed   = session.AddChannel("vehicle.speed", "m/s", "Speed over ground");
         _throttle= session.AddChannel("engine.throttle", "", "Throttle input 0..1");

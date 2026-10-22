@@ -67,7 +67,7 @@ public sealed class SmsSource : ILegacySource
 
     public void Declare(OgsaSession session)
     {
-        session.DeclareObject("car", CapnpGen.ObjectType.vehicle, "SMS-engine car");
+        session.DeclareObject("car", Ogsa.Telemetry.Schema.ObjectType.Vehicle, "SMS-engine car");
         _rpm    = session.AddChannel("engine.rpm", "rpm", "Current engine rpm");
         _rpmMax = session.AddChannel("engine.rpmMax", "rpm", "Engine redline");
         _speed  = session.AddChannel("vehicle.speed", "m/s", "Speed over ground");

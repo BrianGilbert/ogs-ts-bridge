@@ -93,7 +93,7 @@ public class TranslationTests
             Assert.True(Envelope.TryUnwrap(d, out var type, out var payload));
             Assert.Equal(FrameType.Motion, type);
             return CapnpGen.MotionFrame.READER.create(
-                Capnp.DeserializerState.CreateRoot(Envelope.DecodeMessage(payload.Span)));
+                Capnp.DeserializerState.CreateRoot(MessageDecoder.DecodeMessage(payload.Span)));
         }
 
         public CapnpGen.DiscoveryFrame.READER SingleDiscovery()
@@ -101,7 +101,7 @@ public class TranslationTests
             var d = Sent.Where(x => x.type == FrameType.Discovery).Last().datagram;
             Assert.True(Envelope.TryUnwrap(d, out var type, out var payload));
             return CapnpGen.DiscoveryFrame.READER.create(
-                Capnp.DeserializerState.CreateRoot(Envelope.DecodeMessage(payload.Span)));
+                Capnp.DeserializerState.CreateRoot(MessageDecoder.DecodeMessage(payload.Span)));
         }
 
         public void Dispose() { }

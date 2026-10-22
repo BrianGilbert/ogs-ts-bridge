@@ -10,10 +10,6 @@
     <ServerGarbageCollection>false</ServerGarbageCollection>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Capnp.Net.Runtime" Version="1.3.118" />
-  </ItemGroup>
-
   <!-- Vendored engine-agnostic core from ogsa-ts-dotnet (sync-core.ps1). -->
   <ItemGroup>
     <Compile Include="..\..\OgsaTelemetry\*.cs" Link="OgsaTelemetry\%(Filename)%(Extension)" />
