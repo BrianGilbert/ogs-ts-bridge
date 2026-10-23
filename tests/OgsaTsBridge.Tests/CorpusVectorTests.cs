@@ -7,7 +7,8 @@ using Capnp;
 using Xunit;
 
 /// <summary>Guards the vendored core (OgsaTelemetry/*.cs) against the
-/// standard's conformance corpus: the vendored writers must encode every
+/// standard's conformance corpus (Vendored/conformance, from
+/// OGSA-Telemetry-Standard): the vendored writers must encode every
 /// golden datagram byte for byte, and every datagram must decode to its
 /// manifest-declared semantics through the vendored readers. Catches vendoring drift — e.g. the corpus v3 renumbering of
 /// ContactMedium/ObjectType (other → 0, real values shifted, vacuum
@@ -17,22 +18,17 @@ public class CorpusVectorTests
 {
     static string CorpusDir()
     {
-        // walk to the repo root (marker: the vendored OgsaTelemetry dir),
-        // then the standard repo as a sibling (local dev) or nested
-        // checkout (CI path: OGSA-Telemetry-Standard)
+        // walk to the repo root (marker: the vendored OgsaTelemetry dir);
+        // the corpus is vendored from OGSA-Telemetry-Standard by sync-core.ps1
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir != null &&
                !Directory.Exists(Path.Combine(dir.FullName, "OgsaTelemetry")))
             dir = dir.Parent;
         Assert.NotNull(dir);
-        string[] candidates =
-        {
-            Path.Combine(dir!.Parent!.FullName, "OGSA-Telemetry-Standard", "conformance"),
-            Path.Combine(dir.FullName, "OGSA-Telemetry-Standard", "conformance"),
-        };
-        var found = candidates.FirstOrDefault(Directory.Exists);
-        Assert.NotNull(found);
-        return found!;
+        var corpus = Path.Combine(dir!.FullName,
+            "tests", "OgsaTsBridge.Tests", "Vendored", "conformance");
+        Assert.True(Directory.Exists(corpus), $"corpus not found: {corpus} (run sync-core.ps1)");
+        return corpus;
     }
 
     static (FrameType Type, DeserializerState Root) Load(string id)

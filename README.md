@@ -223,6 +223,7 @@ angular rate consistently). To verify with a real game:
 | `src/OgsaTsBridge` | Console host (CLI, auto mode, pinned mode) |
 | `src/OgsaTsBridge.Gui` | WPF desktop shell over the engine |
 | `OgsaTelemetry/` | Vendored engine-agnostic core from [ogsa-ts-dotnet] (envelope, UDP sender, units, generated schema) — `sync-core.ps1` refreshes it |
+| `tests/OgsaTsBridge.Tests/Vendored` | Capnp.Net readers from [ogsa-ts-dotnet] and the conformance corpus from [OGSA-Telemetry-Standard] (`conformance/`), test-only — `sync-core.ps1` refreshes them |
 | `tests/OgsaTsBridge.Tests` | xunit: Euler-convention locks, wire-level translation decode checks, and real-UDP loopback tests that forge legacy packets and assert the OGSA-TS output (values *and* 1:1 cadence) |
 
 ## Adding a source
@@ -239,7 +240,7 @@ dotnet build
 dotnet test
 dotnet run --project src/OgsaTsBridge.Gui   # desktop app (Windows)
 dotnet run --project src/OgsaTsBridge -- run # headless engine
-pwsh ./sync-core.ps1                         # re-vendor the core from ogsa-ts-dotnet on GitHub (-Ref to pin)
+pwsh ./sync-core.ps1                         # re-vendor core + corpus from GitHub (-Ref / -StandardRef to pin)
 ```
 
 ## License
@@ -255,3 +256,4 @@ Wire compatibility follows the standard's evolution rules
 
 [Common Channels Annex]: https://github.com/Open-Game-Standards-Alliance/OGSA-Telemetry-Standard/blob/main/CHANNELS.md
 [ogsa-ts-dotnet]: https://github.com/Open-Game-Standards-Alliance/ogsa-ts-dotnet
+[OGSA-Telemetry-Standard]: https://github.com/Open-Game-Standards-Alliance/OGSA-Telemetry-Standard
