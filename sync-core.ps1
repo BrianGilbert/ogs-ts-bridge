@@ -4,6 +4,7 @@
 # this app builds its own latency-first frames). The tests decode what the
 # app sends, so they also get the receive side's Capnp.Net readers — test
 # project only; the app ships no Cap'n Proto runtime.
+# Upstream's MIT LICENSE travels with each vendored folder.
 # Run from the repo root after pulling upstream changes.
 $ErrorActionPreference = 'Stop'
 $src = "../ogsa-ts-dotnet/src/Ogsa.Telemetry"
@@ -38,10 +39,12 @@ function Sync-Files([string[]]$from, [string]$dst) {
 Sync-Files @(
     "$src/Envelope.cs", "$src/TelemetrySender.cs", "$src/Unit.cs",
     "$src/Conversions.cs", "$src/Wire.cs", "$src/ConformanceVectors.cs",
-    "$src/Schema/ogsa_telemetry.writers.cs") "OgsaTelemetry"
+    "$src/Schema/ogsa_telemetry.writers.cs",
+    "../ogsa-ts-dotnet/LICENSE") "OgsaTelemetry"
 Sync-Files @(
     "$recv/MessageDecoder.cs",
-    "$recv/Schema/ogsa_telemetry.capnp.cs") "tests/OgsaTsBridge.Tests/Vendored"
+    "$recv/Schema/ogsa_telemetry.capnp.cs",
+    "../ogsa-ts-dotnet/LICENSE") "tests/OgsaTsBridge.Tests/Vendored"
 
 if ($changed -eq 0) { Write-Host "core up to date" }
 exit 0
