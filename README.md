@@ -239,7 +239,7 @@ dotnet build
 dotnet test
 dotnet run --project src/OgsaTsBridge.Gui   # desktop app (Windows)
 dotnet run --project src/OgsaTsBridge -- run # headless engine
-pwsh ./sync-core.ps1                         # re-vendor the core after ogsa-ts-dotnet changes
+pwsh ./sync-core.ps1                         # re-vendor the core from ogsa-ts-dotnet on GitHub (-Ref to pin)
 ```
 
 ## License

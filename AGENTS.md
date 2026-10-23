@@ -8,8 +8,9 @@
 - Output cadence equals input cadence (one motion frame per accepted
   packet, `--max-hz` is a guardrail, not a target).
 - The vendored `OgsaTelemetry/` core comes from ogsa-ts-dotnet via
-  `sync-core.ps1` — never hand-edit it; run the script after pulling
-  upstream. App-specific behaviour belongs in `OgsaSession`, not the core.
+  `sync-core.ps1` — never hand-edit it; run the script after upstream
+  changes (it fetches from GitHub). App-specific behaviour belongs in
+  `OgsaSession`, not the core.
 - Discovery datagrams must stay under ~1.4 kB (one Ethernet MTU).
   Wheel-level data rides `WheelState` drive points, not flat channels.
 - Channel names follow the standard's Common Channels Annex where
