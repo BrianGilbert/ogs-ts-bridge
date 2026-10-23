@@ -1,5 +1,19 @@
 # OGSA-TS Bridge
 
+> [!IMPORTANT]
+> **In active development.** The Bridge works end to end and is covered by
+> automated tests, but none of its game mappings have been verified against
+> the live games yet: axis directions and units come from each format's
+> documentation (see
+> [Axis conventions & verification](#axis-conventions--verification)).
+> Expect rough edges, and please report what you find on
+> [Discord](https://discord.gg/tseF4Q6U99). Windows only for now.
+>
+> Development is funded by
+> [sponsorship](https://github.com/sponsors/BrianGilbert), which moves this
+> and the rest of the [OGSA](https://github.com/Open-Game-Standards-Alliance)
+> work forward.
+
 Translate telemetry from games that don't support the
 [OGSA Telemetry Standard](https://github.com/Open-Game-Standards-Alliance/OGSA-Telemetry-Standard)
 and retransmit it as **OGSA-TS UDP** (OMT1 / Cap'n Proto, multicast) — so
