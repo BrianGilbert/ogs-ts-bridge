@@ -21,7 +21,7 @@ namespace OgsaTsBridge.Gui
 public partial class MainWindow : Window
 {
     const string SponsorsUrl = "https://github.com/sponsors/BrianGilbert";
-    const string DiscordUrl = "https://discord.gg/tseF4Q6U99";
+    const string DiscordUrl = "https://discord.gg/yyCp5D2Ccp";
 
     readonly EngineHost _host;
     readonly DispatcherTimer _ui;

@@ -7,7 +7,7 @@
 > documentation (see
 > [Axis conventions & verification](#axis-conventions--verification)).
 > Expect rough edges, and please report what you find on
-> [Discord](https://discord.gg/tseF4Q6U99). Windows only for now.
+> [Discord](https://discord.gg/yyCp5D2Ccp). Windows only for now.
 >
 > Development is funded by
 > [sponsorship](https://github.com/sponsors/BrianGilbert), which moves this
@@ -37,7 +37,7 @@ game (legacy telemetry)                     any OGSA-TS receiver
 └───────────────────────────────────────────────────────────────┘
 ```
 
-Community & support: [Discord](https://discord.gg/tseF4Q6U99) · [Support development](https://github.com/sponsors/BrianGilbert)
+Community & support: [Discord](https://discord.gg/yyCp5D2Ccp) · [Support development](https://github.com/sponsors/BrianGilbert)
 
 Two frontends share one engine:
 
@@ -145,7 +145,7 @@ discovery well under one Ethernet MTU.
 
 Does your game already output telemetry, over UDP, shared memory or
 another format? If you'd like it supported by the Bridge, get in touch on
-[Discord](https://discord.gg/tseF4Q6U99). Documentation of your format and
+[Discord](https://discord.gg/yyCp5D2Ccp). Documentation of your format and
 a game key, so the mapping can be verified against the live game, are the
 main things needed. The Bridge then serves every OGSA-TS receiver with no
 changes to your game.

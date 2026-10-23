@@ -36,7 +36,7 @@
                     </TextBlock.InputBindings>
                 </TextBlock>
                 <TextBlock Text="  ·  " Foreground="{StaticResource FgDim}"/>
-                <TextBlock Text="Discord" Foreground="{StaticResource FgDim}" Cursor="Hand" ToolTip="https://discord.gg/tseF4Q6U99">
+                <TextBlock Text="Discord" Foreground="{StaticResource FgDim}" Cursor="Hand" ToolTip="https://discord.gg/yyCp5D2Ccp">
                     <TextBlock.InputBindings>
                         <MouseBinding Gesture="LeftClick" Command="{Binding OpenDiscord}"/>
                     </TextBlock.InputBindings>
