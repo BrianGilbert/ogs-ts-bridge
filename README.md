@@ -145,9 +145,10 @@ discovery well under one Ethernet MTU.
 
 Does your game already output telemetry, over UDP, shared memory or
 another format? If you'd like it supported by the Bridge, get in touch on
-[Discord](https://discord.gg/tseF4Q6U99). Documentation of your format is
-the main thing needed, and the Bridge then serves every OGSA-TS receiver
-with no changes to your game.
+[Discord](https://discord.gg/tseF4Q6U99). Documentation of your format and
+a game key, so the mapping can be verified against the live game, are the
+main things needed. The Bridge then serves every OGSA-TS receiver with no
+changes to your game.
 
 For new or updated games, sending OGSA-TS directly removes the need for a
 bridge altogether: the
