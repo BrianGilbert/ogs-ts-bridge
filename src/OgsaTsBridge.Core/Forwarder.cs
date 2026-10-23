@@ -92,5 +92,11 @@ public sealed class ForwarderStats
     public long PacketsOut;
     public long Rejected;
     public long Translated => PacketsOut;
+    /// <summary>Why no telemetry is flowing yet (e.g. waiting for the sim
+    /// to accept a SimConnect client), or null.</summary>
+    public volatile string? Waiting;
+    /// <summary>Source diagnostics worth showing once (e.g. variables the
+    /// simulator rejected), or null.</summary>
+    public volatile string? Note;
 }
 }

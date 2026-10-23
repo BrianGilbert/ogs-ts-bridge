@@ -15,6 +15,12 @@
     <Compile Include="..\..\OgsaTelemetry\*.cs" Link="OgsaTelemetry\%(Filename)%(Extension)" />
   </ItemGroup>
 
+  <!-- SimConnect client library for the msfs source (lib/SimConnect/NOTICE.md). -->
+  <ItemGroup>
+    <None Include="..\..\lib\SimConnect\SimConnect.dll" Link="SimConnect.dll"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="OgsaTsBridge.Tests" />
   </ItemGroup>

@@ -35,6 +35,10 @@ public sealed class OgsaSession : IDisposable
 {
     enum Dyn { None, Kinematics, BodyDynamics }
 
+    /// <summary>Channel budget per session.</summary>
+    public const int MaxChannels = 512;
+    const int MaxDrivePoints = 32;
+
     readonly TelemetrySender? _sender;
     readonly Action<FrameType, byte[]>? _sink;   // test capture path
     readonly string _gameName;
@@ -44,11 +48,16 @@ public sealed class OgsaSession : IDisposable
 
     // declaration state (locked at Start)
     readonly List<Schema.ChannelDescriptor> _descriptors = new();
-    readonly List<Schema.DrivePointDescriptor> _wheelDescriptors = new();
+    readonly List<Schema.DrivePointDescriptor> _pointDescriptors = new();
+    readonly List<Schema.NamedPoint> _namedPoints = new();
     string _objectName = "player";
     Schema.ObjectType _objectType = Schema.ObjectType.Vehicle;
     string _typeLabel = "";
     bool _locked;
+
+    // discovery environment (sent with each discovery)
+    float _airDensity = 1.225f, _temperature = 20f, _pressure = 101325f;
+    bool _environmentSet, _environmentPending;
 
     // per-tick state (receive thread only)
     Vector3 _position; bool _hasPosition;
@@ -56,15 +65,28 @@ public sealed class OgsaSession : IDisposable
     Dyn _dyn;
     Vector3 _velocity, _acceleration, _specificForce, _angularVelocity;
 
-    readonly double[] _pushed = new double[64];
-    readonly bool[] _boolValue = new bool[64];
-    readonly bool[] _boolSet = new bool[64];    // reset each tick; defaults false
-    readonly bool[] _isBool = new bool[64];
+    readonly double[] _pushed = new double[MaxChannels];
+    readonly bool[] _boolValue = new bool[MaxChannels];
+    readonly bool[] _boolSet = new bool[MaxChannels];    // reset each tick; defaults false
+    readonly bool[] _isBool = new bool[MaxChannels];
     int _channelCount;
 
-    // wheel state cache (one reused drive point per wheel) + per-tick dirty list
-    readonly List<Schema.DrivePoint> _wheels = new();
-    readonly bool[] _wheelDirty = new bool[16];
+    // changed-only channel mode: a channel rides the motion frame when its
+    // value differs from the last one sent, when it is marked always-sent,
+    // or on the full refresh that follows each discovery send; a channel
+    // never set (its source variable unavailable) is never sent
+    bool _changedOnly;
+    readonly bool[] _valueSet = new bool[MaxChannels];
+    readonly bool[] _alwaysSend = new bool[MaxChannels];
+    readonly bool[] _everSent = new bool[MaxChannels];
+    readonly float[] _sentNumber = new float[MaxChannels];
+    readonly bool[] _sentBool = new bool[MaxChannels];
+    bool _refreshDue = true;
+    readonly List<Schema.ChannelValue> _changedValues = new(); // reused list
+
+    // drive point state cache (one reused drive point each) + per-tick dirty list
+    readonly List<Schema.DrivePoint> _points = new();
+    readonly bool[] _pointDirty = new bool[MaxDrivePoints];
     readonly List<Schema.DrivePoint> _drivePoints = new(); // reused list
 
     // cached wire graphs
@@ -98,6 +120,24 @@ public sealed class OgsaSession : IDisposable
     {
         LockCheck("DeclareObject");
         _objectName = name; _objectType = type; _typeLabel = typeLabel;
+    }
+
+    /// <summary>Motion frames carry only channels whose value changed since
+    /// they were last sent (the schema's "absence means unchanged"), plus a
+    /// full refresh after every discovery send so late joiners converge
+    /// within the discovery interval. For sources with large channel sets.</summary>
+    public void SendChangedChannelsOnly()
+    {
+        LockCheck("SendChangedChannelsOnly");
+        _changedOnly = true;
+    }
+
+    /// <summary>In changed-only mode, carries this channel in every motion
+    /// frame regardless (e.g. <c>session.paused</c>, CONVENTIONS C-11).</summary>
+    public void AlwaysSend(OgsaChannel channel)
+    {
+        LockCheck("AlwaysSend");
+        _alwaysSend[channel.Id] = true;
     }
 
     public OgsaChannel AddChannel(string name, string unit, string description = "",
@@ -135,36 +175,87 @@ public sealed class OgsaSession : IDisposable
         return h;
     }
 
+    /// <summary>Declares a named point (meters, object-local frame — the
+    /// same frame as the drive-point offsets).</summary>
+    public void AddNamedPoint(string name, Vector3 position)
+    {
+        LockCheck("AddNamedPoint");
+        var point = new Schema.NamedPoint { Name = name };
+        point.Position.X = position.X; point.Position.Y = position.Y; point.Position.Z = position.Z;
+        _namedPoints.Add(point);
+    }
+
     /// <summary>Declares a wheel drive point. Offsets are metres in the
-    /// object-local frame (+x right, +y up, +z forward from the CG).</summary>
+    /// object-local frame (+x right, +y up, +z forward from the CG).
+    /// <paramref name="suspension"/> false declares no suspension spec
+    /// (for sources that do not know the geometry).</summary>
     public int AddWheel(string name, Vector3 offset, float radius,
                         bool driven, bool steered,
-                        float travelMin = -0.05f, float travelMax = 0.15f)
+                        float travelMin = -0.05f, float travelMax = 0.15f,
+                        bool suspension = true)
     {
         LockCheck("AddWheel");
-        int id = _wheelDescriptors.Count;
+        var descriptor = NewPointDescriptor(name, offset);
+        var spec = descriptor.InitWheel();
+        spec.Radius = radius; spec.Driven = driven; spec.Steered = steered;
+        if (suspension)
+        {
+            var s = spec.InitSuspension();
+            s.Travel.Min = travelMin; s.Travel.Max = travelMax;
+            s.Stiffness = 65000f; s.Damping = 5000f;
+        }
+
+        var point = new Schema.DrivePoint { Id = descriptor.Id };
+        point.InitWheel().Contact = Schema.ContactMedium.Asphalt;
+        _points.Add(point);
+        return descriptor.Id;
+    }
+
+    /// <summary>Declares a propeller (or rotor) drive point;
+    /// <paramref name="diameter"/> 0 = unknown.</summary>
+    public int AddPropeller(string name, Vector3 offset, float diameter = 0f, ushort blades = 0)
+    {
+        LockCheck("AddPropeller");
+        var descriptor = NewPointDescriptor(name, offset);
+        var spec = descriptor.InitPropeller();
+        spec.Diameter = diameter; spec.Blades = blades;
+
+        var point = new Schema.DrivePoint { Id = descriptor.Id };
+        point.InitPropeller();
+        _points.Add(point);
+        return descriptor.Id;
+    }
+
+    /// <summary>Declares a jet drive point.</summary>
+    public int AddJet(string name, Vector3 offset)
+    {
+        LockCheck("AddJet");
+        var descriptor = NewPointDescriptor(name, offset);
+        descriptor.SetJet();
+
+        var point = new Schema.DrivePoint { Id = descriptor.Id };
+        point.InitJet();
+        _points.Add(point);
+        return descriptor.Id;
+    }
+
+    Schema.DrivePointDescriptor NewPointDescriptor(string name, Vector3 offset)
+    {
+        if (_pointDescriptors.Count >= MaxDrivePoints)
+            throw new NotSupportedException("drive point budget exceeded for this build");
         var descriptor = new Schema.DrivePointDescriptor
         {
-            Id = (ushort)id,
+            Id = (ushort)_pointDescriptors.Count,
             Name = name,
             Offset = { X = offset.X, Y = offset.Y, Z = offset.Z },
         };
-        var spec = descriptor.InitWheel();
-        spec.Radius = radius; spec.Driven = driven; spec.Steered = steered;
-        var suspension = spec.InitSuspension();
-        suspension.Travel.Min = travelMin; suspension.Travel.Max = travelMax;
-        suspension.Stiffness = 65000f; suspension.Damping = 5000f;
-        _wheelDescriptors.Add(descriptor);
-
-        var point = new Schema.DrivePoint { Id = (ushort)id };
-        point.InitWheel().Contact = Schema.ContactMedium.Asphalt;
-        _wheels.Add(point);
-        return id;
+        _pointDescriptors.Add(descriptor);
+        return descriptor;
     }
 
     OgsaChannel NewChannel(bool boolean)
     {
-        if (_channelCount >= _pushed.Length)
+        if (_channelCount >= MaxChannels)
             throw new NotSupportedException("channel budget exceeded for this build");
         int id = _channelCount++;
         _isBool[id] = boolean;
@@ -177,7 +268,8 @@ public sealed class OgsaSession : IDisposable
         if (_locked)
             throw new InvalidOperationException(
                 $"{what} after Start — declarations are locked once discovery " +
-                "has been sent (receivers cache descriptors by id)");
+                "has been sent (receivers cache descriptors by id); use " +
+                "BeginRedeclare to change them");
     }
 
     /// <summary>Locks declarations and sends the initial DiscoveryFrame —
@@ -186,6 +278,45 @@ public sealed class OgsaSession : IDisposable
     /// Windows), and discovery is idempotent by design, so the redundant
     /// frame costs ~70 bytes and heals the loss for every late joiner.</summary>
     public void Start(double nowSeconds)
+    {
+        _locked = true;
+        if (double.IsNaN(_anchor)) _anchor = nowSeconds;
+        SendDiscovery(nowSeconds);
+        SendDiscovery(nowSeconds);
+    }
+
+    // ---- redeclaration (descriptor change: vehicle swap) ----
+
+    /// <summary>Clears every declaration (object, channels, drive points,
+    /// named points) and unlocks them, keeping the session anchor and the
+    /// changed-only mode. Declare again, then call
+    /// <see cref="CommitRedeclare"/>. Cold path — allocates.</summary>
+    public void BeginRedeclare()
+    {
+        _descriptors.Clear();
+        _pointDescriptors.Clear();
+        _namedPoints.Clear();
+        _points.Clear();
+        _drivePoints.Clear();
+        _changedValues.Clear();
+        Array.Clear(_pointDirty);
+        Array.Clear(_pushed);
+        Array.Clear(_boolValue);
+        Array.Clear(_boolSet);
+        Array.Clear(_isBool);
+        Array.Clear(_alwaysSend);
+        Array.Clear(_everSent);
+        Array.Clear(_valueSet);
+        _channelCount = 0;
+        _discoveryFrame = null;
+        _motionFrame = null;
+        _motionValues = null;
+        _locked = false;
+    }
+
+    /// <summary>Locks the new declarations and sends discovery at once
+    /// (twice, as in Start) — the schema's re-send on descriptor change.</summary>
+    public void CommitRedeclare(double nowSeconds)
     {
         _locked = true;
         if (double.IsNaN(_anchor)) _anchor = nowSeconds;
@@ -220,22 +351,72 @@ public sealed class OgsaSession : IDisposable
         _specificForce = specificForce; _angularVelocity = angularVelocity;
     }
 
-    public void SetChannel(OgsaChannel channel, double value) => _pushed[channel.Id] = value;
+    /// <summary>Sends <c>noDynamics</c> until the next SetKinematics or
+    /// SetBodyDynamics (e.g. while paused, CONVENTIONS C-11).</summary>
+    public void ClearDynamics() => _dyn = Dyn.None;
+
+    public void SetChannel(OgsaChannel channel, double value)
+    {
+        _pushed[channel.Id] = value;
+        _valueSet[channel.Id] = true;
+    }
 
     public void SetChannel(OgsaChannel channel, bool value)
     {
         _boolValue[channel.Id] = value;
         _boolSet[channel.Id] = true;
+        _valueSet[channel.Id] = true;
     }
 
     public void SetWheel(int index, float slip, float compression,
                          Schema.ContactMedium contact)
     {
-        var w = _wheels[index].InitWheel(); // the existing state: no allocation
+        var w = _points[index].InitWheel(); // the existing state: no allocation
         w.Slip = slip;
         w.Compression = compression;
         w.Contact = contact;
-        _wheelDirty[index] = true;
+        _pointDirty[index] = true;
+    }
+
+    /// <summary>Wheel state with rotational speed (rpm, C-3).</summary>
+    public void SetWheel(int index, float rpm, float slip, float compression,
+                         Schema.ContactMedium contact)
+    {
+        var w = _points[index].InitWheel();
+        w.Rpm = rpm;
+        w.Slip = slip;
+        w.Compression = compression;
+        w.Contact = contact;
+        _pointDirty[index] = true;
+    }
+
+    /// <summary>Road-wheel steer angle, rad, + = right (C-4/C-6) — selects
+    /// the wheel's extended state (its other extended fields read 0).</summary>
+    public void SetWheelSteer(int index, float steerAngle)
+    {
+        _points[index].InitWheel().InitExtended().SteerAngle = steerAngle;
+        _pointDirty[index] = true;
+    }
+
+    public void SetPropeller(int index, float rpm)
+    {
+        _points[index].InitPropeller().Rpm = rpm;
+        _pointDirty[index] = true;
+    }
+
+    public void SetJet(int index, float throttle)
+    {
+        _points[index].InitJet().Throttle = throttle;
+        _pointDirty[index] = true;
+    }
+
+    /// <summary>Updates the discovery environment (kg/m³, °C, Pa). The
+    /// first update replaces the defaults with a discovery re-send on the
+    /// next Tick; later ones ride the regular re-send.</summary>
+    public void SetEnvironment(float airDensity, float temperature, float pressure)
+    {
+        _airDensity = airDensity; _temperature = temperature; _pressure = pressure;
+        if (!_environmentSet) { _environmentSet = true; _environmentPending = true; }
     }
 
     /// <summary>Encodes and sends one motion frame if the cadence allows,
@@ -246,7 +427,7 @@ public sealed class OgsaSession : IDisposable
         if (double.IsNaN(_anchor)) _anchor = nowSeconds;
         _locked = true;
 
-        if (nowSeconds - _lastDiscovery >= _discoveryInterval)
+        if (_environmentPending || nowSeconds - _lastDiscovery >= _discoveryInterval)
             SendDiscovery(nowSeconds);
 
         if (nowSeconds - _lastMotion < _minMotionInterval)
@@ -275,7 +456,6 @@ public sealed class OgsaSession : IDisposable
             SessionStartUnixUs = _sessionStartTicks / 10, // .NET ticks (100 ns) → µs
             Environment =
             {
-                AirDensity = 1.225f, Temperature = 20f, Pressure = 101325f, // Pa
                 Gravity = 9.81f, Medium = Schema.ContactMedium.Asphalt,
             },
             Objects = new List<Schema.ObjectDescriptor>
@@ -288,13 +468,18 @@ public sealed class OgsaSession : IDisposable
                     Primary = true,
                     Location = "local",
                     ReferencePoint = { Name = "origin" },
-                    DrivePoints = _wheelDescriptors,
+                    NamedPoints = _namedPoints,
+                    DrivePoints = _pointDescriptors,
                     Channels = _descriptors,
                 },
             },
         };
+        var env = _discoveryFrame.Environment;
+        env.AirDensity = _airDensity; env.Temperature = _temperature; env.Pressure = _pressure; // Pa
         Send(FrameType.Discovery, _discoveryFrame);
         _lastDiscovery = nowSeconds;
+        _environmentPending = false;
+        _refreshDue = true;
     }
 
     void Send(FrameType type, WireStruct frame)
@@ -319,7 +504,12 @@ public sealed class OgsaSession : IDisposable
             {
                 Objects = new List<Schema.MotionObject>
                 {
-                    new() { Name = _objectName, Channels = values, DrivePoints = _drivePoints },
+                    new()
+                    {
+                        Name = _objectName,
+                        Channels = _changedOnly ? _changedValues : values,
+                        DrivePoints = _drivePoints,
+                    },
                 },
             };
         }
@@ -353,34 +543,69 @@ public sealed class OgsaSession : IDisposable
                 break;
         }
 
-        // per-wheel state: only wheels touched since the last tick ride the
+        // per-point state: only points touched since the last tick ride the
         // frame (an empty list encodes as null)
         _drivePoints.Clear();
-        for (int i = 0; i < _wheels.Count; i++)
+        for (int i = 0; i < _points.Count; i++)
         {
-            if (!_wheelDirty[i]) continue;
-            _drivePoints.Add(_wheels[i]);
-            _wheelDirty[i] = false;
+            if (!_pointDirty[i]) continue;
+            _drivePoints.Add(_points[i]);
+            _pointDirty[i] = false;
         }
 
         if (_motionValues is not null)
-            for (int i = 0; i < _channelCount; i++)
-            {
-                if (_isBool[i])
-                    _motionValues[i].Boolean = _boolSet[i] && _boolValue[i];
-                else
-                    _motionValues[i].Number = (float)_pushed[i];
-                _boolSet[i] = false; // one-shot: absent booleans read false next tick
-            }
+        {
+            if (_changedOnly) WriteChangedValues();
+            else
+                for (int i = 0; i < _channelCount; i++)
+                {
+                    if (_isBool[i])
+                        _motionValues[i].Boolean = _boolSet[i] && _boolValue[i];
+                    else
+                        _motionValues[i].Number = (float)_pushed[i];
+                    _boolSet[i] = false; // one-shot: absent booleans read false next tick
+                }
+        }
 
         _motionFrame.Timestamp = nowSeconds - _anchor;
         return _motionFrame;
     }
 
+    // Changed-only mode: booleans hold their last set value (absence on the
+    // wire already means unchanged), numbers compare at wire precision.
+    void WriteChangedValues()
+    {
+        _changedValues.Clear();
+        bool refresh = _refreshDue;
+        _refreshDue = false;
+        for (int i = 0; i < _channelCount; i++)
+        {
+            if (!_valueSet[i]) continue;
+            var cv = _motionValues![i];
+            if (_isBool[i])
+            {
+                bool b = _boolValue[i];
+                if (!refresh && !_alwaysSend[i] && _everSent[i] && _sentBool[i] == b) continue;
+                cv.Boolean = b;
+                _sentBool[i] = b;
+            }
+            else
+            {
+                float f = (float)_pushed[i];
+                if (!refresh && !_alwaysSend[i] && _everSent[i] &&
+                    _sentNumber[i].Equals(f)) continue;
+                cv.Number = f;
+                _sentNumber[i] = f;
+            }
+            _everSent[i] = true;
+            _changedValues.Add(cv);
+        }
+    }
+
     public void Dispose()
     {
         _descriptors.Clear();
-        _wheels.Clear();
+        _points.Clear();
         _drivePoints.Clear();
         _motionFrame = null;
         _motionValues = null;

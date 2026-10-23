@@ -14,6 +14,10 @@ public enum SourceTransport
     /// forwarder polls it at <see cref="PollIntervalMs"/> (sub-tick added
     /// latency, bounded by the poll interval).</summary>
     SharedMemory,
+    /// <summary>The source is a SimConnect client (<see cref="ISimConnectSource"/>):
+    /// the sim pushes data per frame and signals an event handle, so the
+    /// forwarder thread wakes on arrival.</summary>
+    SimConnect,
 }
 
 /// <summary>

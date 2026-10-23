@@ -128,6 +128,7 @@ ogsa-ts-bridge list beamng   # one source's options (--set key=value)
 | `wrc` | WRC (Generations-era, `WRC`) | WRC UDP (port 20777) | pose + world kinematics + channels |
 | `lfs` | Live for Speed (`LFS`) | OutSim UDP (port 3156) | pose + body dynamics (derived specific force) |
 | `ac-family` | Assetto Corsa (`acs`), ACC (`acc`) | `Local\acpmf_physics` shared memory, 2 ms poll | pose + body dynamics + wheels + channels |
+| `msfs` | Microsoft Flight Simulator 2020 (`FlightSimulator`), 2024 (`FlightSimulator2024`) | SimConnect, every sim frame; no in-sim setup | pose + body dynamics + environment + wheel, propeller and jet drive points + pilot/engine points + ~110 channels |
 
 A **source is a format, not a game** — when a new title is confirmed to
 emit a covered format, it joins the executable watch list with no new
@@ -138,8 +139,19 @@ registering new sources.
 
 Channel mapping follows the standard's [Common Channels Annex] where a
 concept is ratified (`engine.rpm`, `vehicle.speed`, …); wheel-level data
-rides schema `WheelState` drive points rather than flat channels, keeping
-discovery well under one Ethernet MTU.
+rides schema `WheelState` drive points rather than flat channels.
+
+`msfs` maps the standard's [MSFS sender reference]: air data, wind,
+controls, per-engine data (`engine[n].*`), fuel, electrics, radios,
+lights, cabin, pushback, touchdown and session state, alongside the
+schema fields. Its discovery is larger than one datagram MTU (it is
+re-sent every 2 s, so a lost fragment heals); motion frames carry only
+the channels that changed, plus `session.paused` on every frame. When
+the sim pauses, or sits in its menus, frames keep flowing with
+`session.paused` set and no dynamics (CONVENTIONS C-11). The
+`SimConnect.dll` client ships with the Bridge
+([lib/SimConnect/NOTICE.md](lib/SimConnect/NOTICE.md));
+`--set simconnect=<path>` points it at another copy.
 
 ## For game developers
 
@@ -218,6 +230,14 @@ escape hatches; see `ogsa-ts-bridge list <id>`):
 - `ac-family` — AccG order assumed (lateral, longitudinal, vertical) in
   g, gravity included; heading/pitch/roll direct; fuel/gear emitted raw
   (game encoding unverified).
+- `msfs` — `PLANE PITCH DEGREES` taken as positive nose-down and
+  `PLANE BANK DEGREES` as positive left-down (both negated), with
+  `ROTATION VELOCITY BODY` / `ROTATION ACCELERATION BODY` X and Z negated
+  to match; body axes taken as OGSA's (x right, y up, z forward);
+  `ACCELERATION BODY` assumed gravity-free (`gravIncluded` to override);
+  control positions (`ctrl.*`), wind vector components and the nose steer
+  angle mapped direct; named points and engine offsets are in the
+  aircraft's datum frame; a menu is detected as `CAMERA STATE` ≥ 11.
 
 Per-axis escape hatches exist for live verification
 (`--set flipYaw/flipPitch/flipRoll=true` flips an Euler axis *and* its
@@ -234,7 +254,8 @@ angular rate consistently). To verify with a real game:
 
 | Path | Contents |
 |---|---|
-| `src/OgsaTsBridge.Core` | The engine: `Forwarder` (hot path), `OgsaSession` (frame writer), `EngineHost` (control surface for GUI/console), `GameProcessWatcher`, `AutoSupervisor`, `UdpInputSocket`, `LatencyMeter`, `OgsaMath`, `Sources/*` |
+| `src/OgsaTsBridge.Core` | The engine: `Forwarder` (hot path), `MmfForwarder` / `SimConnectForwarder` (shared-memory and SimConnect inputs), `OgsaSession` (frame writer), `EngineHost` (control surface for GUI/console), `GameProcessWatcher`, `AutoSupervisor`, `UdpInputSocket`, `LatencyMeter`, `OgsaMath`, `SimConnect/*` (native binding, library search), `Sources/*` |
+| `lib/SimConnect` | Microsoft's SimConnect client library, copied next to both executables ([NOTICE](lib/SimConnect/NOTICE.md)) |
 | `src/OgsaTsBridge` | Console host (CLI, auto mode, pinned mode) |
 | `src/OgsaTsBridge.Gui` | WPF desktop shell over the engine |
 | `OgsaTelemetry/` | Vendored engine-agnostic core from [ogsa-ts-dotnet] (envelope, UDP sender, units, generated schema) — `sync-core.ps1` refreshes it |
@@ -270,5 +291,6 @@ Wire compatibility follows the standard's evolution rules
 (unknown fields/frame types are skipped by receivers).
 
 [Common Channels Annex]: https://github.com/Open-Game-Standards-Alliance/OGSA-Telemetry-Standard/blob/main/CHANNELS.md
+[MSFS sender reference]: https://github.com/Open-Game-Standards-Alliance/OGSA-Telemetry-Standard/blob/main/reference-msfs2024.md
 [ogsa-ts-dotnet]: https://github.com/Open-Game-Standards-Alliance/ogsa-ts-dotnet
 [OGSA-Telemetry-Standard]: https://github.com/Open-Game-Standards-Alliance/OGSA-Telemetry-Standard

@@ -5,8 +5,10 @@ Licensor Line of Business: OGSA-TS Bridge, software that translates games' own t
 The files vendored from ogsa-ts-dotnet (in OgsaTelemetry/ and
 tests/OgsaTsBridge.Tests/Vendored/) and from OGSA-Telemetry-Standard (in
 tests/OgsaTsBridge.Tests/Vendored/conformance/) remain under the MIT
-License; each of those folders carries its own LICENSE. Everything else in this
-repository is licensed under the terms below.
+License; each of those folders carries its own LICENSE. lib/SimConnect/SimConnect.dll
+is Microsoft's SimConnect client library and is not covered by this license
+(see lib/SimConnect/NOTICE.md). Everything else in this repository is licensed
+under the terms below.
 
 # PolyForm Shield License 1.0.0
 

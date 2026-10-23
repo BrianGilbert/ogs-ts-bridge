@@ -11,10 +11,14 @@
   `sync-core.ps1` — never hand-edit it; run the script after upstream
   changes (it fetches from GitHub). App-specific behaviour belongs in
   `OgsaSession`, not the core.
-- Discovery datagrams must stay under ~1.4 kB (one Ethernet MTU).
-  Wheel-level data rides `WheelState` drive points, not flat channels.
+- Motion datagrams must stay under ~1.4 kB (one Ethernet MTU). Discovery
+  should too; a source whose standard reference maps more (`msfs`) may
+  exceed it, because discovery is re-sent every 2 s, and must then send
+  changed channels only (`SendChangedChannelsOnly`). Wheel-level data
+  rides `WheelState` drive points, not flat channels.
 - Channel names follow the standard's Common Channels Annex where
-  ratified; anything else gets a game-prefixed name.
+  ratified, then its per-game sender reference (`reference-*.md`) where
+  one exists; anything else gets a game-prefixed name.
 - Game detection is process-name based — never
   probe telemetry ports to guess which game is running, and never depend
   on Steam.

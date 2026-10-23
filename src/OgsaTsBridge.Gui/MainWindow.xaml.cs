@@ -128,9 +128,11 @@ public partial class MainWindow : Window
                 g => g.ProcessName.Equals(label, StringComparison.OrdinalIgnoreCase))?.DisplayName
                 ?? (GameList.SelectedItem as GameRow)?.Game.DisplayName;
             StatusText.Text = $"Forwarding: {gameName ?? active.Title}";
-            StatusDetail.Text = _host.ManualActive
-                ? $"manually selected · listening 0.0.0.0:{active.DefaultPort} → {_host.Options.Output}"
-                : $"detected {gameName ?? label} · listening 0.0.0.0:{active.DefaultPort} → {_host.Options.Output}";
+            var input = Forwarders.DescribeInput(active);
+            StatusDetail.Text = (_host.ManualActive
+                ? $"manually selected · {input} → {_host.Options.Output}"
+                : $"detected {gameName ?? label} · {input} → {_host.Options.Output}")
+                + (_host.ActiveForwarder?.Stats.Waiting is { } waiting ? $" · {waiting}" : "");
         }
         else if (_host.LastError is { } error)
         {

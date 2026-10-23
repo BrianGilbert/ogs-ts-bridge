@@ -42,7 +42,7 @@ stops it when the game exits (plain process names, no Steam dependency, no telem
 | `Declare(session)` | Register the object, wheels, channels — becomes the DiscoveryFrame |
 | `AcceptsDatagram(length)` | Cheap length/magic check on the receive thread |
 | `Translate(datagram, session, now)` | Parse one packet, write the session, tick exactly once |
-| `Transport` | `Udp` (default) or `SharedMemory` + the map name/size/poll interval |
+| `Transport` | `Udp` (default), `SharedMemory` + the map name/size/poll interval, or `SimConnect` (implement `ISimConnectSource`) |
 
 **Latency rules for `Translate`** (it runs on the forwarder thread,
 between the receive and send syscalls):
@@ -170,6 +170,39 @@ if (packetId == _lastPacketId) return;   // no tick — nothing new
 UDP is push (zero added latency); shared memory adds at most
 `PollIntervalMs` (2 ms ≪ AC's 333 Hz physics write cadence).
 
+## SimConnect sources
+
+For Microsoft Flight Simulator (and anything else speaking SimConnect),
+implement `ISimConnectSource` and return `SourceTransport.SimConnect`.
+The source lists its variables instead of a byte layout:
+
+```csharp
+public IReadOnlyList<SimVar> FrameVars    // every sim frame, FLOAT64 each
+public IReadOnlyList<SimVar> AircraftVars // once a second, on change
+                                          // (Number, Text, or Xyz)
+```
+
+The supervisor runs a `SimConnectForwarder`: it loads `SimConnect.dll`
+(the copy bundled in `lib/SimConnect`, or the `simconnect` option), opens
+a client with an event handle, requests `FrameVars` per sim frame and
+wakes when SimConnect signals data. Each frame reaches `Translate` as
+packed doubles in `FrameVars` order, so the source reads them by index
+(`MemoryMarshal.Cast<byte, double>`). A variable the sim does not know
+(names and units differ between versions) is dropped from the definition
+and reads `NaN`: skip `NaN` values rather than sending zeros. The
+console prints which variables the sim rejected.
+
+`OnAircraft` gets the aircraft block (title, engine count, geometry) and
+may redeclare the session (`BeginRedeclare` → declare → `CommitRedeclare`)
+when the aircraft changes. `OnSimState` reports pause and sim-running
+events; `OnIdle` runs when a wait passes without data, so a paused sim
+keeps streaming per CONVENTIONS C-11.
+
+Large channel sets call `session.SendChangedChannelsOnly()` in
+`Declare`: motion frames then carry only changed values (plus a full
+refresh after each discovery), and `session.AlwaysSend(channel)` keeps a
+channel like `session.paused` in every frame.
+
 ## Testing
 
 Every source ships forged-packet tests (see
@@ -207,8 +240,8 @@ Formats still to cover:
   installed into the game).
 - **DCS** — export-script UDP (needs a Lua file shipped into the game).
 - **X-Plane 11/12** — UDP dataref rows (needs per-user dataref config).
-- **War Thunder / MSFS / FSX / Farming Sim 19 / Fernbus** — HTTP/local
-  APIs.
+- **War Thunder / FSX / Farming Sim 19 / Fernbus** — HTTP/local
+  APIs (FSX speaks SimConnect too).
 - **Elite Dangerous** — journal/status files; **GTA5 / Star Wars
   Squadrons** — process memory reads.
 

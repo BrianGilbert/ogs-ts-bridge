@@ -87,30 +87,17 @@ public sealed class AutoSupervisor : IDisposable
             _session = new OgsaSession(_sender, source.Title, _maxHz);
             source.Declare(_session);
 
-            if (source.Transport == SourceTransport.SharedMemory)
+            var forwarder = Forwarders.Create(source, _session,
+                () => new UdpInputSocket(new IPEndPoint(IPAddress.Any, source.DefaultPort)),
+                out _input);
+            _forwarder = forwarder;
+            var token = _cts.Token;
+            _thread = new Thread(() => forwarder.Run(token))
             {
-                var mmf = new MmfForwarder(source, _session);
-                _forwarder = mmf;
-                _thread = new Thread(() => mmf.Run(_cts.Token))
-                {
-                    Name = $"ogsa-ts-bridge.poll.{source.Id}",
-                    IsBackground = true,
-                    Priority = _priority,
-                };
-            }
-            else
-            {
-                _input = new UdpInputSocket(
-                    new IPEndPoint(IPAddress.Any, source.DefaultPort));
-                var udp = new Forwarder(source, _input, _session);
-                _forwarder = udp;
-                _thread = new Thread(() => udp.Run(_cts.Token))
-                {
-                    Name = $"ogsa-ts-bridge.forward.{source.Id}",
-                    IsBackground = true,
-                    Priority = _priority,
-                };
-            }
+                Name = $"ogsa-ts-bridge.{source.Transport.ToString().ToLowerInvariant()}.{source.Id}",
+                IsBackground = true,
+                Priority = _priority,
+            };
     }
 
     /// <summary>Disposes partial construction state and clears every

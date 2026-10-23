@@ -98,9 +98,12 @@ run options:
             Console.WriteLine("sources:");
             foreach (var s in SourceRegistry.All())
             {
-                var input = s.Transport == SourceTransport.SharedMemory
-                    ? $"shared memory {s.SharedMemoryName}"
-                    : $"port {s.DefaultPort}";
+                var input = s.Transport switch
+                {
+                    SourceTransport.SharedMemory => $"shared memory {s.SharedMemoryName}",
+                    SourceTransport.SimConnect => "SimConnect",
+                    _ => $"port {s.DefaultPort}",
+                };
                 Console.WriteLine($"  {s.Id,-12} {s.Title} — {input}");
                 foreach (var g in s.Games)
                     Console.WriteLine($"               {g.DisplayName} ({g.ProcessName})");
@@ -112,6 +115,8 @@ run options:
         Console.WriteLine($"{src.Id} — {src.Title}");
         if (src.Transport == SourceTransport.SharedMemory)
             Console.WriteLine($"  input     : shared memory {src.SharedMemoryName} (poll {src.PollIntervalMs} ms)");
+        else if (src.Transport == SourceTransport.SimConnect)
+            Console.WriteLine("  input     : SimConnect (per sim frame)");
         else
             Console.WriteLine($"  default port: {src.DefaultPort}");
         Console.WriteLine($"  watches processes: {string.Join(", ", src.ProcessNames)}");
@@ -214,18 +219,23 @@ run options:
         int inPort = o.InPort >= 0 ? o.InPort : source.DefaultPort;
 
         Console.WriteLine($"ogsa-ts-bridge: source {source.Id} ({source.Title}) [pinned]");
-        Console.WriteLine($"  listening : 0.0.0.0:{inPort} (UDP)");
+        Console.WriteLine(source.Transport == SourceTransport.Udp
+            ? $"  listening : 0.0.0.0:{inPort} (UDP)"
+            : $"  input     : {Forwarders.DescribeInput(source)}");
         Console.WriteLine($"  forwarding: {o.Endpoint} ttl {o.Ttl}, motion cap {o.MaxHz} Hz");
         Console.WriteLine("  Ctrl+C to stop");
 
-        using var input = TryBind(new IPEndPoint(IPAddress.Any, inPort), o, out bool bindFailed);
-        if (bindFailed) return 2;
         using var sender = new TelemetrySender(
             o.Endpoint.Address.ToString(), o.Endpoint.Port, o.Ttl, loopback: true);
         using var session = new OgsaSession(sender, source.Title, o.MaxHz);
         source.Declare(session);
 
-        var forwarder = new Forwarder(source, input, session);
+        bool bindFailed = false;
+        var forwarder = Forwarders.Create(source, session,
+            () => TryBind(new IPEndPoint(IPAddress.Any, inPort), o, out bindFailed)!,
+            out var input);
+        using var inputOwner = input;
+        if (bindFailed) return 2;
         var thread = new Thread(() => forwarder.Run(ct))
         {
             Name = "ogsa-ts-bridge.forward",
@@ -335,6 +345,7 @@ run options:
     static void StatsLoop(ForwarderLookup lookup, CancellationToken ct)
     {
         long lastIn = 0, lastOut = 0, lastRejected = 0;
+        string? lastNote = null;
         var window = TimeSpan.FromSeconds(1);
         while (!ct.WaitHandle.WaitOne(window))
         {
@@ -345,6 +356,7 @@ run options:
                 continue;
             }
             var s = f.Stats;
+            if (s.Note is { } note && note != lastNote) Console.WriteLine(lastNote = note);
             var l = f.Latency.Take();
             double inRate = s.PacketsIn - lastIn;
             double outRate = s.PacketsOut - lastOut;
@@ -352,7 +364,9 @@ run options:
             lastIn = s.PacketsIn; lastOut = s.PacketsOut; lastRejected = s.Rejected;
             if (s.PacketsIn == 0)
             {
-                Console.WriteLine($"source active, waiting for game telemetry… (in {inRate:F0}/s)");
+                Console.WriteLine(s.Waiting is { } why
+                    ? $"source active, {why}"
+                    : $"source active, waiting for game telemetry… (in {inRate:F0}/s)");
                 continue;
             }
             Console.WriteLine(
