@@ -141,6 +141,20 @@ concept is ratified (`engine.rpm`, `vehicle.speed`, …); wheel-level data
 rides schema `WheelState` drive points rather than flat channels, keeping
 discovery well under one Ethernet MTU.
 
+## For game developers
+
+Does your game already output telemetry, over UDP, shared memory or
+another format? If you'd like it supported by the Bridge, get in touch on
+[Discord](https://discord.gg/tseF4Q6U99). Documentation of your format is
+the main thing needed, and the Bridge then serves every OGSA-TS receiver
+with no changes to your game.
+
+For new or updated games, sending OGSA-TS directly removes the need for a
+bridge altogether: the
+[engine plugins](https://github.com/Open-Game-Standards-Alliance) for
+Unity, Unreal and Godot, and the .NET and C++ cores for custom engines,
+make that a small integration.
+
 ## Latency design notes
 
 The whole point of this app is to not be visible in the latency budget:
