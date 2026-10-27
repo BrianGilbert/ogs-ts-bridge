@@ -1,4 +1,4 @@
-# OGSA-TS Bridge working conventions
+# OGS-TS Bridge working conventions
 
 - Latency is the first-class requirement. Nothing that sits on the
   packet path may allocate, lock, or hop threads: parse with
@@ -7,10 +7,10 @@
   the send syscall, it needs a strong reason.
 - Output cadence equals input cadence (one motion frame per accepted
   packet, `--max-hz` is a guardrail, not a target).
-- The vendored `OgsaTelemetry/` core comes from ogsa-ts-dotnet via
+- The vendored `OgsTelemetry/` core comes from ogs-ts-dotnet via
   `sync-core.ps1` — never hand-edit it; run the script after upstream
   changes (it fetches from GitHub). App-specific behaviour belongs in
-  `OgsaSession`, not the core.
+  `OgsSession`, not the core.
 - Motion datagrams must stay under ~1.4 kB (one Ethernet MTU). Discovery
   should too; a source whose standard reference maps more (`msfs`) may
   exceed it, because discovery is re-sent every 2 s, and must then send

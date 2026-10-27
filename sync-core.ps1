@@ -1,4 +1,4 @@
-# sync-core.ps1 — vendor the engine-agnostic C# core from ogsa-ts-dotnet
+# sync-core.ps1 — vendor the engine-agnostic C# core from ogs-ts-dotnet
 # (envelope, sender, unit conversions, canonical encoder + generated schema
 # writers, conformance vectors; the receiver and publisher stay upstream —
 # this app builds its own latency-first frames). The tests decode what the
@@ -6,12 +6,12 @@
 # project only; the app ships no Cap'n Proto runtime — and the standard's
 # conformance corpus, which CorpusVectorTests checks the core against.
 # Each upstream's MIT LICENSE travels with the folders vendored from it.
-# Fetches both repos from GitHub; -Ref (ogsa-ts-dotnet) and -StandardRef
-# (OGSA-Telemetry-Standard) take a branch, tag or full commit SHA.
+# Fetches both repos from GitHub; -Ref (ogs-ts-dotnet) and -StandardRef
+# (OGS-Telemetry-Standard) take a branch, tag or full commit SHA.
 # Run from the repo root: pwsh ./sync-core.ps1 [-Ref <ref>] [-StandardRef <ref>]
 param([string]$Ref = 'main', [string]$StandardRef = 'main')
 $ErrorActionPreference = 'Stop'
-$org = 'https://github.com/Open-Game-Standards-Alliance'
+$org = 'https://github.com/Open-Game-Standards'
 $changed = 0
 $fetched = @()
 
@@ -52,23 +52,23 @@ function Sync-Files([string[]]$from, [string]$dst, [string]$prune = '*.cs') {
 }
 
 try {
-    $dotnet = Get-Upstream 'ogsa-ts-dotnet' $Ref
-    $standard = Get-Upstream 'OGSA-Telemetry-Standard' $StandardRef
-    $src = "$dotnet/src/Ogsa.Telemetry"
-    $recv = "$dotnet/src/Ogsa.Telemetry.Receiving"
+    $dotnet = Get-Upstream 'ogs-ts-dotnet' $Ref
+    $standard = Get-Upstream 'OGS-Telemetry-Standard' $StandardRef
+    $src = "$dotnet/src/Ogs.Telemetry"
+    $recv = "$dotnet/src/Ogs.Telemetry.Receiving"
 
     Sync-Files @(
         "$src/Envelope.cs", "$src/TelemetrySender.cs", "$src/Unit.cs",
         "$src/Conversions.cs", "$src/Wire.cs", "$src/ConformanceVectors.cs",
-        "$src/Schema/ogsa_telemetry.writers.cs",
-        "$dotnet/LICENSE") "OgsaTelemetry"
+        "$src/Schema/ogs_telemetry.writers.cs",
+        "$dotnet/LICENSE") "OgsTelemetry"
     Sync-Files @(
         "$recv/MessageDecoder.cs",
-        "$recv/Schema/ogsa_telemetry.capnp.cs",
-        "$dotnet/LICENSE") "tests/OgsaTsBridge.Tests/Vendored"
-    Sync-Files @("$standard/LICENSE") "tests/OgsaTsBridge.Tests/Vendored/conformance" 'LICENSE'
+        "$recv/Schema/ogs_telemetry.capnp.cs",
+        "$dotnet/LICENSE") "tests/OgsTsBridge.Tests/Vendored"
+    Sync-Files @("$standard/LICENSE") "tests/OgsTsBridge.Tests/Vendored/conformance" 'LICENSE'
     Sync-Files @(Get-ChildItem "$standard/conformance/vectors/*.hex" | ForEach-Object FullName) `
-        "tests/OgsaTsBridge.Tests/Vendored/conformance/vectors" '*.hex'
+        "tests/OgsTsBridge.Tests/Vendored/conformance/vectors" '*.hex'
 } finally {
     foreach ($d in $fetched) { Remove-Item -Recurse -Force $d -ErrorAction SilentlyContinue }
 }

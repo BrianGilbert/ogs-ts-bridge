@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>OgsTsBridge</RootNamespace>
+    <!-- Latency: the forward path allocates one small buffer per frame;
+         workstation concurrent GC keeps any pause micro-scale. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+  </PropertyGroup>
+
+  <!-- Vendored engine-agnostic core from ogs-ts-dotnet (sync-core.ps1). -->
+  <ItemGroup>
+    <Compile Include="..\..\OgsTelemetry\*.cs" Link="OgsTelemetry\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!-- SimConnect client library for the msfs source (lib/SimConnect/NOTICE.md). -->
+  <ItemGroup>
+    <None Include="..\..\lib\SimConnect\SimConnect.dll" Link="SimConnect.dll"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OgsTsBridge.Tests" />
+  </ItemGroup>
+
+</Project>

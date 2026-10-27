@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms> <!-- tray icon + single-instance helpers -->
+    <Nullable>enable</Nullable>
+    <AssemblyName>OgsTsBridge.Gui</AssemblyName>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <Version>2026.10.13</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OgsTsBridge.Core\OgsTsBridge.Core.csproj" />
+  </ItemGroup>
+
+</Project>

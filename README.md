@@ -1,4 +1,4 @@
-# OGSA-TS Bridge
+# OGS-TS Bridge
 
 > [!IMPORTANT]
 > **In active development.** The Bridge works end to end and is covered by
@@ -11,12 +11,12 @@
 >
 > Development is funded by
 > [sponsorship](https://github.com/sponsors/BrianGilbert), which moves this
-> and the rest of the [OGSA](https://github.com/Open-Game-Standards-Alliance)
+> and the rest of the [OGS](https://github.com/Open-Game-Standards)
 > work forward.
 
 Translate telemetry from games that don't support the
-[OGSA Telemetry Standard](https://github.com/Open-Game-Standards-Alliance/OGSA-Telemetry-Standard)
-and retransmit it as **OGSA-TS UDP** (OMT1 / Cap'n Proto, multicast) — so
+[OGS Telemetry Standard](https://github.com/Open-Game-Standards/OGS-Telemetry-Standard)
+and retransmit it as **OGS-TS UDP** (OMT1 / Cap'n Proto, multicast) — so
 motion rigs, dashboards, and haptics built against the standard can consume
 any game, natively.
 
@@ -27,11 +27,11 @@ Typical measured cost (parse → encode → send) is **tens of microseconds**,
 invisible next to a game physics tick.
 
 ```
-game (legacy telemetry)                     any OGSA-TS receiver
+game (legacy telemetry)                     any OGS-TS receiver
    │ UDP, its own format                        ▲
    ▼                                            │ UDP multicast 239.255.17.17:40123
 ┌────────────────────────────────────────────────┴──────────────┐
-│ ogsa-ts-bridge                                                │
+│ ogs-ts-bridge                                                │
 │  receive thread ─ zero-copy parse ─ cached-graph encode ─ send │
 │  (process watcher picks the source, cold path, 2 s cadence)   │
 └───────────────────────────────────────────────────────────────┘
@@ -41,13 +41,13 @@ Community & support: [Discord](https://discord.gg/yyCp5D2Ccp) · [Support develo
 
 Two frontends share one engine:
 
-- **GUI** (`OgsaTsBridge.Gui.exe`, WPF) — shows which game is being
+- **GUI** (`OgsTsBridge.Gui.exe`, WPF) — shows which game is being
   translated with live rates and this app's own latency percentiles,
   lets you manually pick a game when auto-detection finds nothing, edits
   the output endpoint, and carries the donation links. The UI only ever
   reads snapshots and issues supervisor commands — nothing it does can
   touch the forward path.
-- **Console** (`ogsa-ts-bridge`) — same engine, for headless/service use.
+- **Console** (`ogs-ts-bridge`) — same engine, for headless/service use.
 
 ![GUI](docs/gui.png)
 
@@ -55,22 +55,22 @@ Two frontends share one engine:
 
 **Release download**: every push to `main` auto-cuts a CalVer release
 (`vYYYY.MM.DD`, run-number suffixed on same-day repeats) — grab
-`ogsa_ts_bridge-[YYYY.MM.DD]-win64.zip` from GitHub Releases, unzip
-anywhere, and run `OgsaTsBridge.Gui.exe` (desktop app) or
-`ogsa-ts-bridge.exe` (headless console). Self-contained — no .NET
+`ogs_ts_bridge-[YYYY.MM.DD]-win64.zip` from GitHub Releases, unzip
+anywhere, and run `OgsTsBridge.Gui.exe` (desktop app) or
+`ogs-ts-bridge.exe` (headless console). Self-contained — no .NET
 install needed.
 
 **From source** (needs the .NET 8 SDK):
 
 ```bash
-dotnet publish src/OgsaTsBridge    -c Release -r win-x64 --self-contained true -o artifacts/release
-dotnet publish src/OgsaTsBridge.Gui -c Release -r win-x64 --self-contained true -o artifacts/release
+dotnet publish src/OgsTsBridge    -c Release -r win-x64 --self-contained true -o artifacts/release
+dotnet publish src/OgsTsBridge.Gui -c Release -r win-x64 --self-contained true -o artifacts/release
 ```
 
 Both executables land in `artifacts/release/` (gitignored). For dev
-runs without publishing: `dotnet run --project src/OgsaTsBridge.Gui` or
-`dotnet run --project src/OgsaTsBridge -- run` (bare
-`ogsa-ts-bridge.exe` launches the GUI when both are published together).
+runs without publishing: `dotnet run --project src/OgsTsBridge.Gui` or
+`dotnet run --project src/OgsTsBridge -- run` (bare
+`ogs-ts-bridge.exe` launches the GUI when both are published together).
 Releases are CalVer and
 cut automatically by CI on merge to `main` — never push unverified work
 to `main` (a push publishes).
@@ -79,7 +79,7 @@ to `main` (a push publishes).
 
 ```bash
 dotnet build
-dotnet run --project src/OgsaTsBridge -- run
+dotnet run --project src/OgsTsBridge -- run
 ```
 
 With no further arguments the app runs in **auto mode**: it watches for
@@ -101,16 +101,16 @@ Pin a source manually with `--source` (the console equivalent of the
 GUI's "Forward this game"):
 
 ```bash
-dotnet run --project src/OgsaTsBridge -- run --source beamng
-ogsa-ts-bridge list          # source catalogue, watched processes, options
-ogsa-ts-bridge list beamng   # one source's options (--set key=value)
+dotnet run --project src/OgsTsBridge -- run --source beamng
+ogs-ts-bridge list          # source catalogue, watched processes, options
+ogs-ts-bridge list beamng   # one source's options (--set key=value)
 ```
 
 | Option | Default | Meaning |
 |---|---|---|
 | `--source <id>` | auto | pin one source, skip process watching |
 | `--in-port <n>` | source default | UDP port the game sends to |
-| `--out <ip:port>` | `239.255.17.17:40123` | OGSA-TS endpoint (multicast or unicast) |
+| `--out <ip:port>` | `239.255.17.17:40123` | OGS-TS endpoint (multicast or unicast) |
 | `--ttl <n>` | 1 | multicast scope (1 = local subnet) |
 | `--max-hz <n>` | 1000 | motion frame cap; below it, output cadence = input cadence |
 | `--priority <p>` | above | forwarder thread priority (`normal`/`above`/`high`) |
@@ -159,12 +159,12 @@ Does your game already output telemetry, over UDP, shared memory or
 another format? If you'd like it supported by the Bridge, get in touch on
 [Discord](https://discord.gg/yyCp5D2Ccp). Documentation of your format and
 a game key, so the mapping can be verified against the live game, are the
-main things needed. The Bridge then serves every OGSA-TS receiver with no
+main things needed. The Bridge then serves every OGS-TS receiver with no
 changes to your game.
 
-For new or updated games, sending OGSA-TS directly removes the need for a
+For new or updated games, sending OGS-TS directly removes the need for a
 bridge altogether: the
-[engine plugins](https://github.com/Open-Game-Standards-Alliance) for
+[engine plugins](https://github.com/Open-Game-Standards) for
 Unity, Unreal and Godot, and the .NET and C++ cores for custom engines,
 make that a small integration.
 
@@ -204,17 +204,17 @@ heartbeat; ~1 s of silence (5× a 60 Hz tick) marks the session stale.
 
 ## Axis conventions & verification
 
-OGSA-TS world frame is left-handed (+X right, +Y up, +Z forward); body
+OGS-TS world frame is left-handed (+X right, +Y up, +Z forward); body
 rotations: +pitch nose-up, +yaw nose-right, +roll right-side-down
-(CONVENTIONS C-1/C-4). `OgsaMath.EulerToQuaternion` implements exactly
+(CONVENTIONS C-1/C-4). `OgsMath.EulerToQuaternion` implements exactly
 this and is locked by unit tests against the C-4 definitions.
 
 Source mappings that are **derived from the format docs, not yet verified against the live games** (all have `--set flip*`
-escape hatches; see `ogsa-ts-bridge list <id>`):
+escape hatches; see `ogs-ts-bridge list <id>`):
 
 - `beamng` — world vectors mapped `(x, y, z) → (−y, z, x)` (RH Z-up →
   LH Y-up); Euler assumed radians with direct sign mapping.
-- `forza-sled` — local vectors match OGSA body axes 1:1 per the Sled
+- `forza-sled` — local vectors match OGS body axes 1:1 per the Sled
   docs; Euler assumed radians (`--set euler=deg` if a title disagrees);
   Forza's local acceleration is treated as accelerometer-style specific
   force.
@@ -233,7 +233,7 @@ escape hatches; see `ogsa-ts-bridge list <id>`):
 - `msfs` — `PLANE PITCH DEGREES` taken as positive nose-down and
   `PLANE BANK DEGREES` as positive left-down (both negated), with
   `ROTATION VELOCITY BODY` / `ROTATION ACCELERATION BODY` X and Z negated
-  to match; body axes taken as OGSA's (x right, y up, z forward);
+  to match; body axes taken as OGS's (x right, y up, z forward);
   `ACCELERATION BODY` assumed gravity-free (`gravIncluded` to override);
   control positions (`ctrl.*`), wind vector components and the nose steer
   angle mapped direct; named points and engine offsets are in the
@@ -254,13 +254,13 @@ angular rate consistently). To verify with a real game:
 
 | Path | Contents |
 |---|---|
-| `src/OgsaTsBridge.Core` | The engine: `Forwarder` (hot path), `MmfForwarder` / `SimConnectForwarder` (shared-memory and SimConnect inputs), `OgsaSession` (frame writer), `EngineHost` (control surface for GUI/console), `GameProcessWatcher`, `AutoSupervisor`, `UdpInputSocket`, `LatencyMeter`, `OgsaMath`, `SimConnect/*` (native binding, library search), `Sources/*` |
+| `src/OgsTsBridge.Core` | The engine: `Forwarder` (hot path), `MmfForwarder` / `SimConnectForwarder` (shared-memory and SimConnect inputs), `OgsSession` (frame writer), `EngineHost` (control surface for GUI/console), `GameProcessWatcher`, `AutoSupervisor`, `UdpInputSocket`, `LatencyMeter`, `OgsMath`, `SimConnect/*` (native binding, library search), `Sources/*` |
 | `lib/SimConnect` | Microsoft's SimConnect client library, copied next to both executables ([NOTICE](lib/SimConnect/NOTICE.md)) |
-| `src/OgsaTsBridge` | Console host (CLI, auto mode, pinned mode) |
-| `src/OgsaTsBridge.Gui` | WPF desktop shell over the engine |
-| `OgsaTelemetry/` | Vendored engine-agnostic core from [ogsa-ts-dotnet] (envelope, UDP sender, units, generated schema) — `sync-core.ps1` refreshes it |
-| `tests/OgsaTsBridge.Tests/Vendored` | Capnp.Net readers from [ogsa-ts-dotnet] and the conformance corpus from [OGSA-Telemetry-Standard] (`conformance/`), test-only — `sync-core.ps1` refreshes them |
-| `tests/OgsaTsBridge.Tests` | xunit: Euler-convention locks, wire-level translation decode checks, and real-UDP loopback tests that forge legacy packets and assert the OGSA-TS output (values *and* 1:1 cadence) |
+| `src/OgsTsBridge` | Console host (CLI, auto mode, pinned mode) |
+| `src/OgsTsBridge.Gui` | WPF desktop shell over the engine |
+| `OgsTelemetry/` | Vendored engine-agnostic core from [ogs-ts-dotnet] (envelope, UDP sender, units, generated schema) — `sync-core.ps1` refreshes it |
+| `tests/OgsTsBridge.Tests/Vendored` | Capnp.Net readers from [ogs-ts-dotnet] and the conformance corpus from [OGS-Telemetry-Standard] (`conformance/`), test-only — `sync-core.ps1` refreshes them |
+| `tests/OgsTsBridge.Tests` | xunit: Euler-convention locks, wire-level translation decode checks, and real-UDP loopback tests that forge legacy packets and assert the OGS-TS output (values *and* 1:1 cadence) |
 
 ## Adding a source
 
@@ -274,8 +274,8 @@ and registration.
 ```bash
 dotnet build
 dotnet test
-dotnet run --project src/OgsaTsBridge.Gui   # desktop app (Windows)
-dotnet run --project src/OgsaTsBridge -- run # headless engine
+dotnet run --project src/OgsTsBridge.Gui   # desktop app (Windows)
+dotnet run --project src/OgsTsBridge -- run # headless engine
 pwsh ./sync-core.ps1                         # re-vendor core + corpus from GitHub (-Ref / -StandardRef to pin)
 ```
 
@@ -283,14 +283,14 @@ pwsh ./sync-core.ps1                         # re-vendor core + corpus from GitH
 
 Source-available under the [PolyForm Shield License 1.0.0](LICENSE): you
 can use, study, modify and share the code, and contributions are welcome,
-but you can't use it to build a product that competes with OGSA-TS Bridge,
-including a free one. The OGSA-TS core vendored from [ogsa-ts-dotnet] stays
+but you can't use it to build a product that competes with OGS-TS Bridge,
+including a free one. The OGS-TS core vendored from [ogs-ts-dotnet] stays
 MIT licensed, as do the standard and its SDKs.
 
 Wire compatibility follows the standard's evolution rules
 (unknown fields/frame types are skipped by receivers).
 
-[Common Channels Annex]: https://github.com/Open-Game-Standards-Alliance/OGSA-Telemetry-Standard/blob/main/CHANNELS.md
-[MSFS sender reference]: https://github.com/Open-Game-Standards-Alliance/OGSA-Telemetry-Standard/blob/main/reference-msfs2024.md
-[ogsa-ts-dotnet]: https://github.com/Open-Game-Standards-Alliance/ogsa-ts-dotnet
-[OGSA-Telemetry-Standard]: https://github.com/Open-Game-Standards-Alliance/OGSA-Telemetry-Standard
+[Common Channels Annex]: https://github.com/Open-Game-Standards/OGS-Telemetry-Standard/blob/main/CHANNELS.md
+[MSFS sender reference]: https://github.com/Open-Game-Standards/OGS-Telemetry-Standard/blob/main/reference-msfs2024.md
+[ogs-ts-dotnet]: https://github.com/Open-Game-Standards/ogs-ts-dotnet
+[OGS-Telemetry-Standard]: https://github.com/Open-Game-Standards/OGS-Telemetry-Standard

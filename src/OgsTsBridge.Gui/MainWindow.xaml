@@ -1,0 +1,136 @@
+<Window x:Class="OgsTsBridge.Gui.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="OGS-TS Bridge"
+        Width="600" Height="680" MinWidth="520" MinHeight="560"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource Bg}">
+        <Window.Resources>
+        <!-- Dropdown uses the light default popup: dark text on light
+             surfaces (plus the system selection highlight) reads cleanly
+             and avoids light-on-light. -->
+        <Style x:Key="ComboItemStyle" TargetType="ComboBoxItem">
+            <Setter Property="Foreground" Value="#1E1F24"/>
+            <Setter Property="Padding" Value="8,6"/>
+        </Style>
+    </Window.Resources>
+
+    <DockPanel>
+
+        <!-- Donation footer -->
+        <Border DockPanel.Dock="Bottom" Background="{StaticResource Panel}" Padding="14,10">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <TextBlock Text="Free &amp; open source — " Foreground="{StaticResource FgDim}"/>
+                <TextBlock Text="support development" Foreground="{StaticResource Accent}" Cursor="Hand">
+                    <TextBlock.InputBindings>
+                        <MouseBinding Gesture="LeftClick" Command="{Binding OpenSponsors}"/>
+                    </TextBlock.InputBindings>
+                    <TextBlock.TextDecorations>
+                        <TextDecoration Location="Underline"/>
+                    </TextBlock.TextDecorations>
+                </TextBlock>
+                <TextBlock Text="  ·  " Foreground="{StaticResource FgDim}"/>
+                <TextBlock Text="GitHub Sponsors" Foreground="{StaticResource FgDim}" Cursor="Hand" ToolTip="https://github.com/sponsors/BrianGilbert">
+                    <TextBlock.InputBindings>
+                        <MouseBinding Gesture="LeftClick" Command="{Binding OpenSponsors}"/>
+                    </TextBlock.InputBindings>
+                </TextBlock>
+                <TextBlock Text="  ·  " Foreground="{StaticResource FgDim}"/>
+                <TextBlock Text="Discord" Foreground="{StaticResource FgDim}" Cursor="Hand" ToolTip="https://discord.gg/yyCp5D2Ccp">
+                    <TextBlock.InputBindings>
+                        <MouseBinding Gesture="LeftClick" Command="{Binding OpenDiscord}"/>
+                    </TextBlock.InputBindings>
+                </TextBlock>
+            </StackPanel>
+        </Border>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="16">
+
+                <!-- Status card -->
+                <Border Background="{StaticResource Panel}" CornerRadius="10" Padding="16" Margin="0,0,0,14">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="StatusDot" Width="14" Height="14" VerticalAlignment="Center" Fill="Gray"/>
+                            <TextBlock x:Name="StatusText" Text="Watching for a known game…" FontSize="19" FontWeight="SemiBold"
+                                       Foreground="{StaticResource Fg}" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock x:Name="StatusDetail" Text="" Foreground="{StaticResource FgDim}"
+                                   Margin="24,6,0,0" TextWrapping="Wrap"/>
+
+                        <UniformGrid Columns="4" Margin="0,14,0,2">
+                            <TextBlock Text="in /s" Foreground="{StaticResource FgDim}" FontSize="11"/>
+                            <TextBlock Text="out /s" Foreground="{StaticResource FgDim}" FontSize="11"/>
+                            <TextBlock Text="rejected" Foreground="{StaticResource FgDim}" FontSize="11"/>
+                            <TextBlock Text="" Foreground="{StaticResource FgDim}" FontSize="11"/>
+                        </UniformGrid>
+                        <UniformGrid Columns="4">
+                            <TextBlock x:Name="InRate" Text="—" Foreground="{StaticResource Fg}" FontSize="16" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="OutRate" Text="—" Foreground="{StaticResource Fg}" FontSize="16" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="Rejected" Text="—" Foreground="{StaticResource Fg}" FontSize="16" FontWeight="SemiBold"/>
+                            <TextBlock Text="" Foreground="{StaticResource Fg}"/>
+                        </UniformGrid>
+
+                        <TextBlock Text="forwarding latency (this app's share)" Foreground="{StaticResource FgDim}"
+                                   FontSize="11" Margin="0,12,0,2"/>
+                        <UniformGrid Columns="4">
+                            <TextBlock x:Name="LP50" Text="—" Foreground="{StaticResource Fg}" FontSize="16" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="LP95" Text="—" Foreground="{StaticResource Fg}" FontSize="16" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="LP99" Text="—" Foreground="{StaticResource Fg}" FontSize="16" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="LMax" Text="—" Foreground="{StaticResource Fg}" FontSize="16" FontWeight="SemiBold"/>
+                        </UniformGrid>
+                        <UniformGrid Columns="4">
+                            <TextBlock Text="p50 µs" Foreground="{StaticResource FgDim}" FontSize="11"/>
+                            <TextBlock Text="p95 µs" Foreground="{StaticResource FgDim}" FontSize="11"/>
+                            <TextBlock Text="p99 µs" Foreground="{StaticResource FgDim}" FontSize="11"/>
+                            <TextBlock Text="max µs" Foreground="{StaticResource FgDim}" FontSize="11"/>
+                        </UniformGrid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Games -->
+                <TextBlock Text="GAME" Foreground="{StaticResource FgDim}" FontSize="11" Margin="2,0,0,6"/>
+                <Border Background="{StaticResource Panel}" CornerRadius="10" Padding="10" Margin="0,0,0,14">
+                    <StackPanel>
+                        <ComboBox x:Name="GameList" Height="34" FontSize="14"
+                                  Background="#E8EAF0" Foreground="#1E1F24"
+                                  BorderThickness="0" IsEditable="True" IsReadOnly="True"
+                                  VerticalContentAlignment="Center"
+                                  ItemContainerStyle="{StaticResource ComboItemStyle}"
+                                  SelectionChanged="OnGameSelected"/>
+                        <StackPanel Orientation="Horizontal" Margin="6,10,6,2">
+                            <Button x:Name="StartManual" Content="Forward this game"
+                                    Padding="16,6" Margin="0,0,10,0" Click="OnStartManual"/>
+                            <Button x:Name="PatchGame" Content="Enable game telemetry"
+                                    Padding="16,6" Margin="0,0,10,0" Click="OnPatchGame"
+                                    ToolTip="Writes the game's config file so it starts sending telemetry (game must be closed). A .bak-ogs-ts-bridge backup is kept."/>
+                            <Button x:Name="StopSession" Content="Stop forwarding"
+                                    Padding="16,6" Margin="0,0,10,0" Click="OnStopSession"/>
+                            <CheckBox x:Name="AutoWatchBox" Content="auto-detect running games"
+                                      IsChecked="True" VerticalAlignment="Center"
+                                      Foreground="{StaticResource FgDim}" Checked="OnAutoWatch" Unchecked="OnAutoWatch"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Output -->
+                <TextBlock Text="OGS-TS OUTPUT" Foreground="{StaticResource FgDim}" FontSize="11" Margin="2,0,0,6"/>
+                <Border Background="{StaticResource Panel}" CornerRadius="10" Padding="12" Margin="0,0,0,8">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="endpoint" Foreground="{StaticResource FgDim}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox x:Name="EndpointBox" Width="220" Text="239.255.17.17:40123"
+                                 Background="{StaticResource PanelAlt}" Foreground="{StaticResource Fg}"
+                                 BorderThickness="0" Padding="6,4" VerticalContentAlignment="Center"/>
+                        <TextBlock Text="ttl" Foreground="{StaticResource FgDim}" VerticalAlignment="Center" Margin="14,0,8,0"/>
+                        <TextBox x:Name="TtlBox" Width="40" Text="1"
+                                 Background="{StaticResource PanelAlt}" Foreground="{StaticResource Fg}"
+                                 BorderThickness="0" Padding="6,4" VerticalContentAlignment="Center"/>
+                        <Button Content="Apply" Padding="14,4" Margin="14,0,0,0" Click="OnApplyOutput"/>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+
+</Window>

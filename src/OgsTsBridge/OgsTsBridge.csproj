@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>OgsTsBridge</RootNamespace>
+    <AssemblyName>ogs-ts-bridge</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <Version>2026.10.13</Version>
+    <PackageId>ogs-ts-bridge</PackageId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OgsTsBridge.Core\OgsTsBridge.Core.csproj" />
+  </ItemGroup>
+
+</Project>

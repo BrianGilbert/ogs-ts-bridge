@@ -1,7 +1,7 @@
-# Writing a source (plugin) for OGSA-TS Bridge
+# Writing a source (plugin) for OGS-TS Bridge
 
 A **source** is an adapter that reads one legacy telemetry *format* and
-re-emits it as OGSA-TS. This guide covers the contract, a full UDP
+re-emits it as OGS-TS. This guide covers the contract, a full UDP
 example, the shared-memory variant, axis conventions, options, testing,
 and registration.
 
@@ -29,7 +29,7 @@ stops it when the game exits (plain process names, no Steam dependency, no telem
 
 ## The contract
 
-`ILegacySource` (src/OgsaTsBridge.Core/Sources/ILegacySource.cs):
+`ILegacySource` (src/OgsTsBridge.Core/Sources/ILegacySource.cs):
 
 | Member | What it does |
 |---|---|
@@ -60,7 +60,7 @@ between the receive and send syscalls):
 ```csharp
 public sealed class SmsSource : ILegacySource
 {
-    OgsaChannel _rpm, _speed;                    // handles wired in Declare
+    OgsChannel _rpm, _speed;                    // handles wired in Declare
 
     public string Id => "sms";
     public IReadOnlyList<string> ProcessNames { get; } = new[]
@@ -74,9 +74,9 @@ public sealed class SmsSource : ILegacySource
         // pull values with o.GetBool/GetDouble/GetString defaults
     }
 
-    public void Declare(OgsaSession session)
+    public void Declare(OgsSession session)
     {
-        session.DeclareObject("car", Ogsa.Telemetry.Schema.ObjectType.Vehicle, "SMS-engine car");
+        session.DeclareObject("car", Ogs.Telemetry.Schema.ObjectType.Vehicle, "SMS-engine car");
         _rpm   = session.AddChannel("engine.rpm", "rpm", "Current engine rpm");
         _speed = session.AddChannel("vehicle.speed", "m/s", "Speed over ground");
         // keep discovery under ~1.4 kB — per-wheel data belongs in
@@ -85,10 +85,10 @@ public sealed class SmsSource : ILegacySource
 
     public bool AcceptsDatagram(int length) => length >= 116;
 
-    public void Translate(ReadOnlySpan<byte> d, OgsaSession session, double now)
+    public void Translate(ReadOnlySpan<byte> d, OgsSession session, double now)
     {
         // static offset readers — spans cannot be captured in local functions
-        session.SetPose(null, OgsaMath.EulerToQuaternion(
+        session.SetPose(null, OgsMath.EulerToQuaternion(
             F(d, 56), F(d, 52), F(d, 60)));                  // yaw, pitch, roll
         session.SetBodyDynamics(
             new Vector3(F(d, 100), F(d, 104), F(d, 108)) * 9.81f,
@@ -110,9 +110,9 @@ Dynamics choice — send what the packet measures natively:
   `SetBodyDynamics(f, ω)` (SMS, F1, AC, LFS);
 - exactly one per packet; never both.
 
-Pose comes from `OgsaMath.EulerToQuaternion(yaw, pitch, roll)` or, when
+Pose comes from `OgsMath.EulerToQuaternion(yaw, pitch, roll)` or, when
 the packet gives world direction vectors, from
-`OgsaMath.EulerFromForwardRight(fwd, right)` + the quaternion (EGO, WRC).
+`OgsMath.EulerFromForwardRight(fwd, right)` + the quaternion (EGO, WRC).
 
 ### Where field layouts come from
 
@@ -123,13 +123,13 @@ format is undocumented, ground-truth the layout against live packets
 
 ## Axis conventions
 
-OGSA-TS: world is left-handed (+X right, +Y up, +Z forward), rotations
+OGS-TS: world is left-handed (+X right, +Y up, +Z forward), rotations
 +pitch nose-up, +yaw nose-right, +roll right-side-down (CONVENTIONS
-C-1/C-4). Helpers in `OgsaMath`:
+C-1/C-4). Helpers in `OgsMath`:
 
 - `EulerToQuaternion(yaw, pitch, roll)` — locked by unit tests;
-- `BeamNgWorldToOgsa` — BeamNG's RH/Z-up world → OGSA;
-- `RhuYUpWorldToOgsa` — the common RH/Y-up world (EGO, WRC) → OGSA,
+- `BeamNgWorldToOgs` — BeamNG's RH/Z-up world → OGS;
+- `RhuYUpWorldToOgs` — the common RH/Y-up world (EGO, WRC) → OGS,
   applied as `(z, y, x)`;
 - `EulerFromForwardRight` — Euler from world-space basis vectors.
 
@@ -206,12 +206,12 @@ channel like `session.paused` in every frame.
 ## Testing
 
 Every source ships forged-packet tests (see
-`tests/OgsaTsBridge.Tests/TranslationTests.cs` and `SourcesBatchTests.cs`):
+`tests/OgsTsBridge.Tests/TranslationTests.cs` and `SourcesBatchTests.cs`):
 
 1. Forge a packet with known field values (`Fixtures` pattern — build a
    `byte[]`, write floats with `BitConverter`/`MemoryMarshal.Write`).
-2. Run it through a capture-sink `OgsaSession`
-   (`new OgsaSession((type, datagram) => captured.Add(...), gameName)`).
+2. Run it through a capture-sink `OgsSession`
+   (`new OgsSession((type, datagram) => captured.Add(...), gameName)`).
 3. Decode the datagrams with `Envelope.TryUnwrap` + `DeserializerState`
    and assert the translated values — pose quaternion, dynamics union,
    channel values by discovery id, wheel states.
@@ -222,10 +222,10 @@ already covers the UDP and MMF pipelines.
 
 ## Registration checklist
 
-1. Create `src/OgsaTsBridge.Core/Sources/<Format>Source.cs`.
+1. Create `src/OgsTsBridge.Core/Sources/<Format>Source.cs`.
 2. Add it to `SourceRegistry.All()`.
 3. `dotnet test` — your forged-packet tests must be green.
-4. `dotnet run --project src/OgsaTsBridge -- list` — verify the entry.
+4. `dotnet run --project src/OgsTsBridge -- list` — verify the entry.
 5. Add a row to the README sources table with game-side setup steps.
 6. Document unverified axis assumptions (README verification section).
 
