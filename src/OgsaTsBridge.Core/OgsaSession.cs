@@ -53,6 +53,7 @@ public sealed class OgsaSession : IDisposable
     string _objectName = "player";
     Schema.ObjectType _objectType = Schema.ObjectType.Vehicle;
     string _typeLabel = "";
+    float _gravity = 9.81f; // the g the sources scale accelerometer values with
     bool _locked;
 
     // discovery environment (sent with each discovery)
@@ -120,6 +121,16 @@ public sealed class OgsaSession : IDisposable
     {
         LockCheck("DeclareObject");
         _objectName = name; _objectType = type; _typeLabel = typeLabel;
+    }
+
+    /// <summary>Declares the gravity magnitude (m/s², along world −Y) the
+    /// source's specific force reacts to, so receivers that remove the
+    /// gravity reaction use the same value (standard CONVENTIONS, Gravity).
+    /// Defaults to 9.81, the factor the g-scaled sources use.</summary>
+    public void DeclareGravity(float gravity)
+    {
+        LockCheck("DeclareGravity");
+        _gravity = gravity;
     }
 
     /// <summary>Motion frames carry only channels whose value changed since
@@ -456,7 +467,7 @@ public sealed class OgsaSession : IDisposable
             SessionStartUnixUs = _sessionStartTicks / 10, // .NET ticks (100 ns) → µs
             Environment =
             {
-                Gravity = 9.81f, Medium = Schema.ContactMedium.Asphalt,
+                Gravity = _gravity, Medium = Schema.ContactMedium.Asphalt,
             },
             Objects = new List<Schema.ObjectDescriptor>
             {

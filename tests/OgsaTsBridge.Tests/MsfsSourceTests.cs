@@ -119,6 +119,8 @@ public class MsfsSourceTests
         AssertEx.ApproxEqual(0f, obj.BodyDynamics.SpecificForce.X, 1e-3f);
         AssertEx.ApproxEqual(9.80665f, obj.BodyDynamics.SpecificForce.Y, 1e-3f);
         AssertEx.ApproxEqual(0f, obj.BodyDynamics.SpecificForce.Z, 1e-3f);
+        // discovery declares the gravity the reaction was computed with
+        Assert.Equal(9.80665f, rig.Discovery().Environment.Gravity);
 
         // heading 90° true: the nose points east (+x)
         var q = new Quaternion(obj.Orientation.X, obj.Orientation.Y, obj.Orientation.Z, obj.Orientation.W);

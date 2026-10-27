@@ -77,6 +77,25 @@ public class CorpusVectorTests
     }
 
     [Fact]
+    public void Gravity_Vectors_Decode()
+    {
+        var (_, droot) = Load("discovery-gravity-vector");
+        var env = CapnpGen.DiscoveryFrame.READER.create(droot).Environment;
+        Assert.Equal(CapnpGen.Environment.WHICH.GravityVector, env.which);
+        Assert.Equal((3f, -4f, 0f), (env.GravityVector.X, env.GravityVector.Y, env.GravityVector.Z));
+        Assert.Equal(5f, env.Gravity);
+
+        var (_, mroot) = Load("motion-local-gravity");
+        var obj = Assert.Single(CapnpGen.MotionFrame.READER.create(mroot).Objects);
+        Assert.Equal(CapnpGen.MotionObject.localGravity.WHICH.Vector, obj.LocalGravity.which);
+        Assert.Equal(-2f, obj.LocalGravity.Vector.X);
+
+        var (_, zroot) = Load("motion-local-gravity-zero");
+        var zero = Assert.Single(CapnpGen.MotionFrame.READER.create(zroot).Objects);
+        Assert.Equal(CapnpGen.MotionObject.localGravity.WHICH.Vector, zero.LocalGravity.which);
+    }
+
+    [Fact]
     public void Discovery_Channels()
     {
         var (_, root) = Load("discovery-channels");

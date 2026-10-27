@@ -306,6 +306,7 @@ public sealed class MsfsSource : ISimConnectSource
     void DeclareAircraft(OgsaSession session)
     {
         session.DeclareObject("aircraft", Schema.ObjectType.Aircraft, _aircraftTitle);
+        session.DeclareGravity((float)Gravity); // the reaction added to ACCELERATION BODY
 
         if (_eyepointPos is { } eye) session.AddNamedPoint("pilot", eye);
         for (int e = 0; e < _engines; e++)
