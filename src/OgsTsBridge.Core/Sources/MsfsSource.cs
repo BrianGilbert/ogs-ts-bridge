@@ -64,7 +64,14 @@ public sealed class MsfsSource : ISimConnectSource
     readonly int _tdBank, _tdHeading, _tdPitch;
     readonly int _slew, _zulu, _frameRate, _simRate, _cameraState;
     readonly int _wheelRpmCenter, _wheelRpmLeft, _wheelRpmRight, _skid, _surface, _steer;
-    readonly int[] _contact = new int[3];
+    readonly int[] _contact = new int[ContactPoints], _compression = new int[ContactPoints];
+    // instruments and body-frame air data a motion cue may want (GameLink's
+    // MSFS inputs: the turn ball drives tilt coordination there)
+    readonly int _ball, _vario, _headingMagnetic, _headingGyro, _gForce, _yawMoi;
+    readonly int _relWindX, _relWindY, _relWindZ, _bodyWindX, _bodyWindY, _bodyWindZ;
+    readonly int _velX, _velY, _velZ;
+    readonly int[] _engVibration = new int[MaxEngines], _engRotorRpm = new int[MaxEngines];
+    const int ContactPoints = 6;
 
     // aircraft variable indices
     readonly int _title, _engineCount, _engineType, _eyepoint;
@@ -103,6 +110,11 @@ public sealed class MsfsSource : ISimConnectSource
     OgsChannel _chSeatbelts, _chNoSmoking, _chPushback, _chPushbackAngle;
     OgsChannel _chTouchdown, _chTdBank, _chTdHeading, _chTdPitch, _chTdVs;
     OgsChannel _chPaused, _chSlew, _chZulu, _chFrameRate, _chSimRate;
+    OgsChannel _chBall, _chVario, _chHeadingMagnetic, _chHeadingGyro, _chGForce, _chYawMoi;
+    OgsChannel _chRelWindX, _chRelWindY, _chRelWindZ, _chBodyWindX, _chBodyWindY, _chBodyWindZ;
+    OgsChannel _chVelX, _chVelY, _chVelZ;
+    readonly OgsChannel[] _chCompression = new OgsChannel[ContactPoints], _chContact = new OgsChannel[ContactPoints];
+    readonly OgsChannel[] _chVibration = new OgsChannel[MaxEngines], _chRotorRpm = new OgsChannel[MaxEngines];
     int _wheelCenter, _wheelLeft, _wheelRight, _rotor = -1;
     readonly int[] _enginePoint = new int[MaxEngines];
     bool _jets;
@@ -195,6 +207,8 @@ public sealed class MsfsSource : ISimConnectSource
             _engFailed[e] = V($"GENERAL ENG FAILED:{n}", "bool");
             _engThrottle[e] = V($"GENERAL ENG THROTTLE LEVER POSITION:{n}", "percent over 100");
             _propRpm[e] = V($"PROP RPM:{n}", "rpm");
+            _engVibration[e] = V($"ENG VIBRATION:{n}", "number");
+            _engRotorRpm[e] = V($"ENG ROTOR RPM:{n}", "percent over 100");
         }
         _rotorRpm = V("ROTOR RPM:1", "rpm");
 
@@ -244,7 +258,26 @@ public sealed class MsfsSource : ISimConnectSource
         _wheelRpmLeft = V("LEFT WHEEL RPM", "rpm");
         _wheelRpmRight = V("RIGHT WHEEL RPM", "rpm");
         _skid = V("GEAR SKIDDING FACTOR", "percent over 100");
-        for (int i = 0; i < 3; i++) _contact[i] = V($"CONTACT POINT IS ON GROUND:{i}", "bool");
+        for (int i = 0; i < ContactPoints; i++)
+        {
+            _contact[i] = V($"CONTACT POINT IS ON GROUND:{i}", "bool");
+            _compression[i] = V($"CONTACT POINT COMPRESSION:{i}", "position");
+        }
+        _ball = V("TURN COORDINATOR BALL", "position");
+        _vario = V("VARIOMETER RATE", "meters per second");
+        _headingMagnetic = V("PLANE HEADING DEGREES MAGNETIC", "radians");
+        _headingGyro = V("PLANE HEADING DEGREES GYRO", "radians");
+        _gForce = V("G FORCE", "gforce");
+        _yawMoi = V("TOTAL WEIGHT YAW MOI", "slugs feet squared");
+        _relWindX = V("RELATIVE WIND VELOCITY BODY X", "meters per second");
+        _relWindY = V("RELATIVE WIND VELOCITY BODY Y", "meters per second");
+        _relWindZ = V("RELATIVE WIND VELOCITY BODY Z", "meters per second");
+        _bodyWindX = V("AIRCRAFT WIND X", "meters per second");
+        _bodyWindY = V("AIRCRAFT WIND Y", "meters per second");
+        _bodyWindZ = V("AIRCRAFT WIND Z", "meters per second");
+        _velX = V("VELOCITY BODY X", "meters per second");
+        _velY = V("VELOCITY BODY Y", "meters per second");
+        _velZ = V("VELOCITY BODY Z", "meters per second");
         _surface = V("SURFACE TYPE", "enum");
         _steer = V("GEAR CENTER STEER ANGLE", "radians");
 
@@ -395,6 +428,8 @@ public sealed class MsfsSource : ISimConnectSource
             _chFuelFlow[e] = session.AddChannel(p + "fuelFlow", "kg/s");
             _chRunning[e] = session.AddBooleanChannel(p + "running");
             _chFailed[e] = session.AddBooleanChannel($"fail.engine[{e + 1}]");
+            _chVibration[e] = session.AddChannel(p + "vibration", "", "Engine vibration (sim units)");
+            _chRotorRpm[e] = session.AddChannel(p + "rotorRpm", "", "Rotor speed, fraction of nominal", 0, 2);
         }
 
         _chFuelKg = session.AddChannel("fuel.quantity", "kg");
@@ -433,6 +468,28 @@ public sealed class MsfsSource : ISimConnectSource
         _chTdHeading = session.AddChannel("impact.touchdownHeading", "rad");
         _chTdPitch = session.AddChannel("impact.touchdownPitch", "rad");
         _chTdVs = session.AddChannel("impact.verticalSpeed", "m/s", "Vertical speed at the last touchdown");
+
+        _chBall = session.AddChannel("air.turnBall", "",
+            "Turn coordinator ball, -1..1 as MSFS reports it (+ = ball right of centre)", -1, 1);
+        _chVario = session.AddChannel("air.variometer", "m/s");
+        _chHeadingMagnetic = session.AddChannel("nav.headingMagnetic", "rad");
+        _chHeadingGyro = session.AddChannel("nav.headingGyro", "rad", "Heading indicator (gyro, may drift)");
+        _chGForce = session.AddChannel("air.loadFactor", "", "Load factor (G FORCE), 1 in level flight");
+        _chYawMoi = session.AddChannel("mass.yawInertia", "kg*m2", "Total yaw moment of inertia");
+        _chRelWindX = session.AddChannel("air.relativeWind.x", "m/s", "Airflow relative to the aircraft, body axes");
+        _chRelWindY = session.AddChannel("air.relativeWind.y", "m/s");
+        _chRelWindZ = session.AddChannel("air.relativeWind.z", "m/s");
+        _chBodyWindX = session.AddChannel("wind.body.x", "m/s", "Ambient wind in body axes");
+        _chBodyWindY = session.AddChannel("wind.body.y", "m/s");
+        _chBodyWindZ = session.AddChannel("wind.body.z", "m/s");
+        _chVelX = session.AddChannel("velocity.body.x", "m/s", "Velocity in body axes");
+        _chVelY = session.AddChannel("velocity.body.y", "m/s");
+        _chVelZ = session.AddChannel("velocity.body.z", "m/s");
+        for (int i = 0; i < ContactPoints; i++)
+        {
+            _chCompression[i] = session.AddChannel($"gear.contact[{i + 1}].compression", "", "", 0, 1);
+            _chContact[i] = session.AddBooleanChannel($"gear.contact[{i + 1}].onGround");
+        }
     }
 
     public bool AcceptsDatagram(int length) => length >= _frameVars.Count * sizeof(double);
@@ -536,6 +593,8 @@ public sealed class MsfsSource : ISimConnectSource
             Num(session, _chFuelFlow[e], v[_engFuelFlow[e]]);
             Bool(session, _chRunning[e], v[_engRunning[e]]);
             Bool(session, _chFailed[e], v[_engFailed[e]]);
+            Num(session, _chVibration[e], v[_engVibration[e]]);
+            Num(session, _chRotorRpm[e], v[_engRotorRpm[e]]);
             anyRunning |= v[_engRunning[e]] > 0;
             if (_enginePoint[e] < 0) continue;
             if (_jets) session.SetJet(_enginePoint[e], (float)Math.Clamp(Z(v[_engThrottle[e]]), -1, 1));
@@ -571,6 +630,26 @@ public sealed class MsfsSource : ISimConnectSource
         session.SetChannel(_chAlphaZ, alpha.Z);
         Num(session, _chSpeed, v[_groundSpeed]);
         Bool(session, _chOnGround, v[_onGround]);
+        Num(session, _chBall, v[_ball]);
+        Num(session, _chVario, v[_vario]);
+        Num(session, _chHeadingMagnetic, v[_headingMagnetic]);
+        Num(session, _chHeadingGyro, v[_headingGyro]);
+        Num(session, _chGForce, v[_gForce]);
+        Num(session, _chYawMoi, v[_yawMoi], 1.35581795);   // slug·ft² → kg·m²
+        Num(session, _chRelWindX, v[_relWindX]);
+        Num(session, _chRelWindY, v[_relWindY]);
+        Num(session, _chRelWindZ, v[_relWindZ]);
+        Num(session, _chBodyWindX, v[_bodyWindX]);
+        Num(session, _chBodyWindY, v[_bodyWindY]);
+        Num(session, _chBodyWindZ, v[_bodyWindZ]);
+        Num(session, _chVelX, v[_velX]);
+        Num(session, _chVelY, v[_velY]);
+        Num(session, _chVelZ, v[_velZ]);
+        for (int i = 0; i < ContactPoints; i++)
+        {
+            Num(session, _chCompression[i], v[_compression[i]]);
+            Bool(session, _chContact[i], v[_contact[i]]);
+        }
 
         // wind + ambient
         Num(session, _chWindSpeed, v[_windSpeed]);

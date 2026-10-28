@@ -108,6 +108,31 @@ public class MsfsSourceTests
     }
 
     [Fact]
+    public void Instruments_And_Body_Air_Data_Ride_Channels()
+    {
+        var rig = Level();
+        rig.Aircraft("Cessna 172", engines: 1, engineType: 0);
+        rig.Set("TURN COORDINATOR BALL", 0.4);
+        rig.Set("VARIOMETER RATE", 2.5);
+        rig.Set("G FORCE", 1.3);
+        rig.Set("TOTAL WEIGHT YAW MOI", 1000);
+        rig.Set("RELATIVE WIND VELOCITY BODY Z", 40);
+        rig.Set("CONTACT POINT COMPRESSION:4", 0.25);
+        rig.Set("CONTACT POINT IS ON GROUND:4", 1);
+        rig.Set("ENG VIBRATION:1", 0.7);
+        rig.Send();
+
+        AssertEx.ApproxEqual(0.4f, rig.Number("air.turnBall"), 1e-5f);
+        AssertEx.ApproxEqual(2.5f, rig.Number("air.variometer"), 1e-5f);
+        AssertEx.ApproxEqual(1.3f, rig.Number("air.loadFactor"), 1e-5f);
+        AssertEx.ApproxEqual(1355.818f, rig.Number("mass.yawInertia"), 1e-2f);   // slug·ft² → kg·m²
+        AssertEx.ApproxEqual(40f, rig.Number("air.relativeWind.z"), 1e-5f);
+        AssertEx.ApproxEqual(0.25f, rig.Number("gear.contact[5].compression"), 1e-5f);
+        Assert.True(rig.Boolean("gear.contact[5].onGround"));
+        AssertEx.ApproxEqual(0.7f, rig.Number("engine[1].vibration"), 1e-5f);
+    }
+
+    [Fact]
     public void Level_Rest_Reads_Gravity_Reaction_Up()
     {
         var rig = Level();
