@@ -206,6 +206,11 @@ The whole point of this app is to not be visible in the latency budget:
   on loopback binds where the stack allows it, 1 MiB receive buffer so bursts queue in the kernel
   instead of dropping (a drop costs a full source interval; buffering
   costs microseconds).
+- **Request-driven games are polled tight.** Games that only answer
+  requests (War Thunder's web server, NoLimits 2's TCP server) or expose
+  nothing (Elite's memory) are polled on the same single thread, over
+  one kept-alive connection and reused buffers; a sample waits at most
+  the poll interval plus the round trip — the floor those games set.
 - **Discovery double-send + keepalive.** The sender's first multicast
   datagrams can be dropped by stack warm-up (observed on Windows);
   `Start` sends discovery twice, and a 500 ms receive timeout drives the

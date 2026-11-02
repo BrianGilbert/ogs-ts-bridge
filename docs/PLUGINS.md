@@ -184,6 +184,29 @@ out of a ~240 kB telemetry array, with the slot found from the scoring
 map. `Gather` returns 0 for "nothing new" (unchanged version, torn
 copy), and must not allocate.
 
+## Polled sources
+
+Games that answer requests instead of pushing (a local HTTP or TCP
+server) or expose only their process memory implement `IPolledSource`
+and return `SourceTransport.Poll`:
+
+```csharp
+public SourceTransport Transport => SourceTransport.Poll;
+public int PollIntervalMs => 20;
+public int PollBufferSize => 1 << 17;
+public string PollTarget => "War Thunder on 127.0.0.1:8111"; // shown while waiting
+public bool Connect() => _http.Connect();   // cold; false = not up yet
+public int Read(byte[] buffer) => …;        // > 0 sample, 0 nothing new, −1 gone
+public void Disconnect() => _http.Close();
+```
+
+The poll forwarder retries `Connect` every ~0.5 s (keeping discovery
+alive meanwhile), then calls `Read` every `PollIntervalMs` and hands each
+sample to `Translate`; a −1 disconnects and reconnects. `Read` is the
+packet path: keep one connection and reuse the buffers (`LocalHttp`
+does this for HTTP: keep-alive, prebuilt requests, Content-Length and
+chunked bodies).
+
 ## UDP extras: multicast groups and heartbeats
 
 A game that sends to a multicast group sets `MulticastGroup` (Project

@@ -98,12 +98,7 @@ run options:
             Console.WriteLine("sources:");
             foreach (var s in SourceRegistry.All())
             {
-                var input = s.Transport switch
-                {
-                    SourceTransport.SharedMemory => $"shared memory {s.SharedMemoryName}",
-                    SourceTransport.SimConnect => "SimConnect",
-                    _ => $"port {s.DefaultPort}",
-                };
+                var input = Forwarders.DescribeInput(s);
                 Console.WriteLine($"  {s.Id,-12} {s.Title} — {input}");
                 foreach (var g in s.Games)
                     Console.WriteLine($"               {g.DisplayName} ({g.ProcessName})");
@@ -117,6 +112,10 @@ run options:
             Console.WriteLine($"  input     : shared memory {src.SharedMemoryName} (poll {src.PollIntervalMs} ms)");
         else if (src.Transport == SourceTransport.SimConnect)
             Console.WriteLine("  input     : SimConnect (per sim frame)");
+        else if (src.Transport == SourceTransport.Poll)
+            Console.WriteLine($"  input     : {Forwarders.DescribeInput(src)} (every {src.PollIntervalMs} ms)");
+        else if (src.MulticastGroup.Length > 0)
+            Console.WriteLine($"  default port: {src.DefaultPort}, multicast group {src.MulticastGroup}");
         else
             Console.WriteLine($"  default port: {src.DefaultPort}");
         Console.WriteLine($"  watches processes: {string.Join(", ", src.ProcessNames)}");

@@ -18,6 +18,11 @@ public enum SourceTransport
     /// the sim pushes data per frame and signals an event handle, so the
     /// forwarder thread wakes on arrival.</summary>
     SimConnect,
+    /// <summary>The source fetches each sample itself (<see cref="IPolledSource"/>:
+    /// a local HTTP or TCP request, a process-memory read) every
+    /// <see cref="ILegacySource.PollIntervalMs"/> — for games that answer
+    /// requests instead of pushing.</summary>
+    Poll,
 }
 
 /// <summary>

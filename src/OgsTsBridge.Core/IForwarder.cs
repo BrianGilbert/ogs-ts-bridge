@@ -28,6 +28,8 @@ public static class Forwarders
                 return new MmfForwarder(source, session);
             case Sources.SourceTransport.SimConnect:
                 return new SimConnectForwarder((Sources.ISimConnectSource)source, session);
+            case Sources.SourceTransport.Poll:
+                return new PollForwarder((Sources.IPolledSource)source, session);
             default:
                 input = bindInput();
                 return new Forwarder(source, input, session);
@@ -40,6 +42,7 @@ public static class Forwarders
     {
         Sources.SourceTransport.SharedMemory => $"shared memory {source.SharedMemoryName}",
         Sources.SourceTransport.SimConnect => "SimConnect",
+        Sources.SourceTransport.Poll => $"polling {((Sources.IPolledSource)source).PollTarget}",
         _ when source.MulticastGroup.Length > 0 =>
             $"listening 0.0.0.0:{source.DefaultPort}, group {source.MulticastGroup}",
         _ => $"listening 0.0.0.0:{source.DefaultPort}",
