@@ -155,7 +155,10 @@ public sealed class OgsSession : IDisposable
     public void DeclareObject(string name, Schema.ObjectType type, string typeLabel = "")
     {
         LockCheck("DeclareObject");
-        _objectName = name; _objectType = type; _typeLabel = typeLabel;
+        _objectName = name; _objectType = type;
+        // a label set at runtime (SetTypeLabel) survives a redeclare: the
+        // vehicle did not change, only the declarations did
+        if (_typeLabelBytes.Length == 0) _typeLabel = typeLabel;
     }
 
     /// <summary>Declares the gravity magnitude (m/s², along world −Y) the
