@@ -63,5 +63,26 @@ public class EgoPatchTests
         Assert.Equal("20777", udp.Attributes!["port"]!.Value);
         Directory.Delete(root, true);
     }
+
+
+    [Fact]
+    public void SolarCrown_Patch_EnablesTelemetry()
+    {
+        var root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "bridgetdu-" + System.IO.Path.GetRandomFileName());
+        var dir = System.IO.Path.Combine(root, "My Games", "Test Drive Unlimited Solar Crown");
+        System.IO.Directory.CreateDirectory(dir);
+        var cfg = System.IO.Path.Combine(dir, "UserSettings.cfg");
+        System.IO.File.WriteAllText(cfg, "Rc2.Graphics.Quality = 3\nRc2.Telemetry.EnableTelemetry = false\n");
+        try
+        {
+            Assert.Single(EgoSource.PatchSolarCrownSettings(root, 20777));
+            var text = System.IO.File.ReadAllText(cfg);
+            Assert.Contains("Rc2.Telemetry.EnableTelemetry = true", text);
+            Assert.Contains("Rc2.Telemetry.TelemetryPort = 20777", text);
+            Assert.Contains("Rc2.Graphics.Quality = 3", text);
+            Assert.Empty(EgoSource.PatchSolarCrownSettings(root, 20777)); // already set
+        }
+        finally { System.IO.Directory.Delete(root, true); }
+    }
 }
 }

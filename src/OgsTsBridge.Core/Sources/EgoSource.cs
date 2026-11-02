@@ -8,9 +8,10 @@ namespace OgsTsBridge.Sources
 {
 /// <summary>
 /// Generic Codemasters EGO telemetry source — one format, several games.
-/// Covers Dirt Rally 2.0 (little-endian) and DiRT 4 (big-endian); byte
-/// order is auto-detected from the first sane datagram and sticky for the
-/// session. Games confirmed to emit this format join the process watch
+/// Covers Dirt Rally 2.0 and Test Drive Unlimited Solar Crown
+/// (little-endian) and DiRT 4 (big-endian); byte order is auto-detected
+/// from the first sane datagram and sticky for the session. TDU Solar
+/// Crown reports rpm ÷10 rather than ÷30 (`--set rpmScale=10`). Games confirmed to emit this format join the process watch
 /// list — no per-game code.
 ///
 /// Packet:
@@ -48,19 +49,21 @@ public sealed class EgoSource : ILegacySource, IGamePatcher
     }
 
     public string Id => "ego";
-    public string Title => "EGO telemetry (Dirt Rally 2 / DiRT 4)";
+    public string Title => "EGO telemetry (Dirt Rally 2 / DiRT 4 / TDU Solar Crown)";
     public string Description =>
         "Codemasters EGO UDP telemetry (default port 20777). Enable in-game " +
-        "telemetry (Dirt Rally 2: hardwaresettings XML 'udp' enabled; the " +
+        "telemetry (Dirt Rally 2: hardwaresettings XML 'udp' enabled; TDU " +
+        "Solar Crown: UserSettings.cfg Rc2.Telemetry.EnableTelemetry; the " +
         "game sends to this machine). Byte order auto-detected per session.";
     public int DefaultPort => 20777;
 
-    public IReadOnlyList<string> ProcessNames { get; } = new[] { "dirtrally2", "dirt4" };
+    public IReadOnlyList<string> ProcessNames { get; } = new[] { "dirtrally2", "dirt4", "TDUSC" };
 
     public IReadOnlyList<LegacyGame> Games { get; } = new[]
     {
         new LegacyGame("Dirt Rally 2.0", "dirtrally2"),
         new LegacyGame("DiRT 4", "dirt4"),
+        new LegacyGame("Test Drive Unlimited Solar Crown", "TDUSC"),
     };
 
 
@@ -175,10 +178,50 @@ public sealed class EgoSource : ILegacySource, IGamePatcher
             System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(d.Slice(off, 4)))
         : MemoryMarshal.Read<float>(d.Slice(off, 4));
 
-    // ---- IGamePatcher: DR2/DiRT4 telemetry enablement (config XML) ----
+    // ---- IGamePatcher: DR2/DiRT4 (config XML) and TDUSC (UserSettings.cfg) ----
 
-    public IList<string> PatchGameTelemetry(int port) =>
-        PatchEgoFiles(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), port);
+    public IList<string> PatchGameTelemetry(int port)
+    {
+        var documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        var patched = PatchEgoFiles(documents, port);
+        foreach (var path in PatchSolarCrownSettings(documents, port)) patched.Add(path);
+        return patched;
+    }
+
+    /// <summary>Sets Rc2.Telemetry.EnableTelemetry = true and
+    /// Rc2.Telemetry.TelemetryPort in TDU Solar Crown's UserSettings.cfg
+    /// (written on first launch). One-time .bak-ogs-ts-bridge backup;
+    /// run with the game closed.</summary>
+    public static IList<string> PatchSolarCrownSettings(string documentsRoot, int port)
+    {
+        var path = System.IO.Path.Combine(documentsRoot, "My Games",
+            "Test Drive Unlimited Solar Crown", "UserSettings.cfg");
+        var patched = new List<string>();
+        if (!System.IO.File.Exists(path)) return patched;
+
+        var text = System.IO.File.ReadAllText(path);
+        var updated = SetCfgValue(text, "Rc2.Telemetry.EnableTelemetry", "true");
+        updated = SetCfgValue(updated, "Rc2.Telemetry.TelemetryPort", port.ToString());
+        if (updated == text) return patched;
+
+        var backup = path + ".bak-ogs-ts-bridge";
+        if (!System.IO.File.Exists(backup))
+            System.IO.File.Copy(path, backup);
+        System.IO.File.WriteAllText(path, updated);
+        patched.Add(path);
+        return patched;
+    }
+
+    /// <summary>Replaces `key = value` in place, or appends the line.</summary>
+    static string SetCfgValue(string text, string key, string value)
+    {
+        var pattern = @"(?m)^(\s*" + System.Text.RegularExpressions.Regex.Escape(key) + @"\s*=\s*)[^\r\n]*";
+        var re = new System.Text.RegularExpressions.Regex(pattern);
+        if (re.IsMatch(text))
+            return re.Replace(text, m => m.Groups[1].Value + value, 1);
+        var newline = text.Length == 0 || text.EndsWith('\n') ? "" : Environment.NewLine;
+        return text + newline + key + " = " + value + Environment.NewLine;
+    }
 
     /// <summary>Flips motion_platform/udp to enabled on every existing EGO config file
     /// (DR2 + its VR variant + DiRT 4). One-time .bak-ogs-ts-bridge backup per file.
