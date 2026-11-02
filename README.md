@@ -132,11 +132,12 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 | `r3e` | RaceRoom (`RRRE64`, `RRRE`) | `$R3E` shared memory, 2 ms poll; no in-game setup | pose + body dynamics (derived specific force) + wheels + channels |
 | `rf2` | rFactor 2 (`rFactor2`), Le Mans Ultimate (`Le Mans Ultimate`) | rF2 Shared Memory Map Plugin (`$rFactor2SMMP_*`: telemetry, scoring, extended, force feedback), 2 ms poll; enable the plugin in-game | pose + body dynamics (derived specific force) + wheels with rpm and surface + channels |
 | `scs` | Euro Truck Simulator 2 (`eurotrucks2`), American Truck Simulator (`amtrucks`) | `Local\Ets2TelemetryServer` shared memory from the ets2-telemetry-server plugin DLL (install it into `bin\win_x64\plugins`) | pose + body dynamics (derived specific force) + channels |
+| `xplane` | X-Plane 11/12 (`X-Plane`) | DATA UDP (port 49100): Settings → Data Output, Network column for rows 3, 4, 16, 17, 18, 20, 37 | pose + body dynamics + air-data channels |
 
 A **source is a format, not a game** — when a new title is confirmed to
 emit a covered format, it joins the executable watch list with no new
-code. Further formats (GT7, iRacing, DCS, X-Plane, the
-HTTP/journal/memory-read families) are on the roadmap
+code. Further formats (GT7, iRacing, DCS, the HTTP/journal/memory-read
+families) are on the roadmap
 in [docs/PLUGINS.md](docs/PLUGINS.md) — the full guide to writing and
 registering new sources.
 
@@ -261,6 +262,9 @@ escape hatches; see `ogs-ts-bridge list <id>`):
   looking forward (negated); acceleration gravity-free; the page has no
   angular rates, and holds nothing past plugin revision 4 (no wheel
   arrays).
+- `xplane` — attitude and Q/P/R rates aerospace-standard, mapped direct;
+  g-loads accelerometer-style with axial + forward and side + right
+  (`flipAxial`, `flipSide`).
 - `msfs` — `PLANE PITCH DEGREES` taken as positive nose-down and
   `PLANE BANK DEGREES` as positive left-down (both negated), with
   `ROTATION VELOCITY BODY` / `ROTATION ACCELERATION BODY` X and Z negated
