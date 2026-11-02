@@ -30,6 +30,8 @@ public sealed class Forwarder : IForwarder
     readonly LatencyMeter _latency = new();
     readonly IUdpHeartbeat? _heartbeat;
     double _lastHeartbeat = double.NegativeInfinity;
+    readonly IUdpRequests? _requests;
+    double _lastRequests = double.NegativeInfinity;
 
     public Forwarder(ILegacySource source, UdpInputSocket input, OgsSession session)
     {
@@ -40,6 +42,32 @@ public sealed class Forwarder : IForwarder
             input.JoinMulticast(IPAddress.Parse(source.MulticastGroup));
         if (source is IUdpHeartbeat { HeartbeatTarget: not null } heartbeat)
             _heartbeat = heartbeat;
+        if (source is IUdpRequests { RequestTarget: not null } requests)
+            _requests = requests;
+    }
+
+    /// <summary>Sends the source's subscription requests when they are due.</summary>
+    void Requests()
+    {
+        if (_requests is null) return;
+        double now = Now();
+        if (now - _lastRequests < _requests.RequestIntervalSeconds) return;
+        _lastRequests = now;
+        foreach (var payload in _requests.RequestPayloads)
+            _input.Send(payload, _requests.RequestTarget!);
+    }
+
+    void StopRequests()
+    {
+        if (_requests is null || _input.Closed) return;
+        try
+        {
+            foreach (var payload in _requests.StopPayloads)
+                _input.Send(payload, _requests.RequestTarget!);
+        }
+        catch (Exception ex) when (ex is ObjectDisposedException or SocketException)
+        {
+        }
     }
 
     /// <summary>Sends the source's heartbeat when one is due. Checked on
@@ -66,9 +94,16 @@ public sealed class Forwarder : IForwarder
         _input.ReceiveTimeoutMs = 500;
         Stats.Started = true;
 
+        try { RunLoop(cancellation, from); }
+        finally { StopRequests(); }
+    }
+
+    void RunLoop(CancellationToken cancellation, EndPoint from)
+    {
         while (!cancellation.IsCancellationRequested)
         {
             Heartbeat();
+            Requests();
             int len;
             try { len = _input.Receive(_buffer, ref from); }
             catch (Exception ex) when (ex is ObjectDisposedException or SocketException)

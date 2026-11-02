@@ -133,7 +133,7 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 | `r3e` | RaceRoom (`RRRE64`, `RRRE`) | `$R3E` shared memory, 2 ms poll; no in-game setup | pose + body dynamics (derived specific force) + wheels + channels |
 | `rf2` | rFactor 2 (`rFactor2`), Le Mans Ultimate (`Le Mans Ultimate`) | rF2 Shared Memory Map Plugin (`$rFactor2SMMP_*`: telemetry, scoring, extended, force feedback), 2 ms poll; enable the plugin in-game | pose + body dynamics (derived specific force) + wheels with rpm and surface + channels |
 | `scs` | Euro Truck Simulator 2 (`eurotrucks2`), American Truck Simulator (`amtrucks`) | `Local\Ets2TelemetryServer` shared memory from the ets2-telemetry-server plugin DLL (install it into `bin\win_x64\plugins`) | pose + body dynamics (derived specific force) + channels |
-| `xplane` | X-Plane 11/12 (`X-Plane`) | DATA UDP (port 49100): Settings → Data Output, Network column for rows 3, 4, 16, 17, 18, 20, 37 | pose + body dynamics + air-data channels |
+| `xplane` | X-Plane 11/12 (`X-Plane`) | RREF dataref subscriptions: no setup in the sim; the Bridge asks X-Plane (`--set host=`, default 127.0.0.1:49000) and listens on 49100 | pose + body dynamics, the curated channel set of the standard's X-Plane 12 reference, wheel and engine drive points |
 | `il2` | IL-2 Great Battles (`Il-2`) | `motiondevice` + `telemetrydevice` UDP (port 4321), enabled in `data\startup.cfg` | pose + body dynamics + engine/air channels |
 | `dcs` | DCS World (`DCS`) | export-script UDP (port 42424); `patch --source dcs` installs the script into Saved Games, chained from Export.lua | pose + body dynamics + air-data channels |
 | `condor` | Condor 2 (`Condor`) | key=value UDP (port 55278), `Settings\UDP.ini` Enabled=1 | pose + body dynamics (load factor only) + soaring channels |
@@ -283,9 +283,13 @@ escape hatches; see `ogs-ts-bridge list <id>`):
   looking forward (negated); acceleration gravity-free; the page has no
   angular rates, and holds nothing past plugin revision 4 (no wheel
   arrays).
-- `xplane` — attitude and Q/P/R rates aerospace-standard, mapped direct;
-  g-loads accelerometer-style with axial + forward and side + right
-  (`flipAxial`, `flipSide`).
+- `xplane` — position from X-Plane's local OpenGL frame as (x, y, −z);
+  attitude and Q/P/R rates aerospace-standard, mapped direct; g-loads
+  accelerometer-style with axial + forward and side + right (`flipAxial`,
+  `flipSide`). Gear and engine layout arrive as datarefs: the session is
+  redeclared with one wheel per gear and a drive point per engine (up to
+  four), and again on an aircraft swap. Text datarefs (ICAO type, tail
+  number) and failures are not read.
 - `il2` — body axes assumed RH X-fwd/Y-up/Z-right: vectors `(z, y, x)`,
   rates `(ωz, −ωy, ωx)`; Euler direct; acceleration assumed gravity-free;
   telemetry record types 2, 3 and 7 are published raw (meaning
