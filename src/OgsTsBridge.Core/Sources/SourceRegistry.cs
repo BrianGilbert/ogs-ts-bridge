@@ -34,6 +34,7 @@ public static class SourceRegistry
         new ManiaPlanetSource(),
         new FalconBmsSource(),
         new IRacingSource(),
+        new WarThunderSource(),
     };
 
     public static ILegacySource Create(string id)

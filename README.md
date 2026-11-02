@@ -145,6 +145,7 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 | `maniaplanet` | ManiaPlanet (`ManiaPlanet`), Trackmania Turbo (`TrackmaniaTurbo`) | `ManiaPlanet_Telemetry` shared memory, 2 ms poll; no setup | pose + world kinematics + wheels + channels |
 | `falconbms` | Falcon BMS 4 (`Falcon BMS`) | `FalconSharedMemoryArea` (+ Area2, IntelliVibe) shared memory, 2 ms poll; no setup | pose + world kinematics + ~400 channels |
 | `iracing` | iRacing (`iRacingSim64DX11`) | irsdk shared memory, 2 ms poll; no setup | pose + body dynamics + wheels + every irsdk variable |
+| `warthunder` | War Thunder (`aces`) | local web server `127.0.0.1:8111` (`/state`, `/indicators`), polled every 20 ms | pose + body dynamics (load factor, roll rate) + channels |
 
 A **source is a format, not a game** — when a new title is confirmed to
 emit a covered format, it joins the executable watch list with no new
@@ -329,6 +330,9 @@ escape hatches; see `ogs-ts-bridge list <id>`):
   Lat/Long/VertAccel taken as accelerometer-style; the CarIdx* arrays
   (other cars) are not mapped; variables whose irsdk unit is unknown are
   published raw.
+- `warthunder` — pose from the instruments (compass heading, artificial
+  horizon pitch, horizon roll negated); only the load factor and roll rate
+  feed body dynamics; instrument keys are published raw.
 - `msfs` — `PLANE PITCH DEGREES` taken as positive nose-down and
   `PLANE BANK DEGREES` as positive left-down (both negated), with
   `ROTATION VELOCITY BODY` / `ROTATION ACCELERATION BODY` X and Z negated
