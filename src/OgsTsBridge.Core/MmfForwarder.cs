@@ -6,7 +6,7 @@ using System.IO.MemoryMappedFiles;
 using System.Threading;
 using OgsTsBridge.Sources;
 
-// Windows-only by nature: the games that write these pages (AC/ACC) are
+// Windows-only by nature: the games that write these pages are
 // Windows titles and MemoryMappedFile.OpenExisting for the game's page
 // only exists there.
 #pragma warning disable CA1416
@@ -31,12 +31,19 @@ public sealed class MmfForwarder : IForwarder
     readonly OgsSession _session;
     readonly byte[] _buffer;
     readonly LatencyMeter _latency = new();
+    readonly ISharedMemoryGather? _gather;
+    readonly MemoryMappedFile?[] _auxMaps;
+    readonly MemoryMappedViewAccessor?[] _auxViews;
 
     public MmfForwarder(ILegacySource source, OgsSession session)
     {
         _source = source;
         _session = session;
         _buffer = new byte[Math.Max(64, source.SharedMemorySize)];
+        _gather = source as ISharedMemoryGather;
+        int aux = _gather?.AuxiliaryMapNames.Count ?? 0;
+        _auxMaps = new MemoryMappedFile?[aux];
+        _auxViews = new MemoryMappedViewAccessor?[aux];
     }
 
     public ForwarderStats Stats { get; } = new();
@@ -48,29 +55,40 @@ public sealed class MmfForwarder : IForwarder
         Stats.Started = true;
         MemoryMappedFile? map = null;
         MemoryMappedViewAccessor? view = null;
+        int auxPolls = AuxRetryPolls;
 
         while (!cancellation.IsCancellationRequested)
         {
             if (view is null)
             {
                 // game not up / page not created yet — retry quietly
-                try
-                {
-                    map = MemoryMappedFile.OpenExisting(_source.SharedMemoryName);
-                    view = map.CreateViewAccessor(0, _buffer.Length);
-                }
-                catch (FileNotFoundException)
+                map = OpenAny();
+                if (map is null)
                 {
                     if (cancellation.WaitHandle.WaitOne(250)) break;
                     continue;
                 }
+                // gather sources read anywhere in the map; prefix sources
+                // only ever touch the first SharedMemorySize bytes
+                view = _gather is null
+                    ? map.CreateViewAccessor(0, _buffer.Length)
+                    : map.CreateViewAccessor();
+            }
+
+            if (_gather is not null && ++auxPolls >= AuxRetryPolls)
+            {
+                auxPolls = 0;
+                OpenMissingAuxiliary();
             }
 
             long t0 = Stopwatch.GetTimestamp();
-            view.ReadArray(0, _buffer, 0, _buffer.Length);
+            int length = _buffer.Length;
+            if (_gather is null) view.ReadArray(0, _buffer, 0, _buffer.Length);
+            else length = _gather.Gather(view, _auxViews, _buffer);
             Stats.PacketsIn++;
 
-            _source.Translate(_buffer, _session, Now());
+            if (length > 0)
+                _source.Translate(_buffer.AsSpan(0, length), _session, Now());
             Stats.PacketsOut++;
 
             long t1 = Stopwatch.GetTimestamp();
@@ -81,6 +99,45 @@ public sealed class MmfForwarder : IForwarder
 
         view?.Dispose();
         map?.Dispose();
+        for (int i = 0; i < _auxViews.Length; i++)
+        {
+            _auxViews[i]?.Dispose();
+            _auxMaps[i]?.Dispose();
+            _auxViews[i] = null;
+            _auxMaps[i] = null;
+        }
+    }
+
+    /// <summary>Polls between attempts to open a missing auxiliary map
+    /// (~0.25 s at a 2 ms poll) — a failed open throws, so not every poll.</summary>
+    const int AuxRetryPolls = 128;
+
+    /// <summary>Opens the source's map, falling back through its alternate
+    /// names; null when none exists yet (game not up).</summary>
+    MemoryMappedFile? OpenAny()
+    {
+        if (TryOpen(_source.SharedMemoryName) is { } primary) return primary;
+        foreach (var name in _source.SharedMemoryAlternateNames)
+            if (TryOpen(name) is { } alternate) return alternate;
+        return null;
+    }
+
+    void OpenMissingAuxiliary()
+    {
+        var names = _gather!.AuxiliaryMapNames;
+        for (int i = 0; i < _auxViews.Length; i++)
+        {
+            if (_auxViews[i] is not null) continue;
+            if (TryOpen(names[i]) is not { } map) continue;
+            _auxMaps[i] = map;
+            _auxViews[i] = map.CreateViewAccessor();
+        }
+    }
+
+    static MemoryMappedFile? TryOpen(string name)
+    {
+        try { return MemoryMappedFile.OpenExisting(name); }
+        catch (FileNotFoundException) { return null; }
     }
 
     static double Now() => (double)Stopwatch.GetTimestamp() / Stopwatch.Frequency;

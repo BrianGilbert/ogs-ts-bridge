@@ -85,6 +85,11 @@ public interface ILegacySource
     /// "Local\acpmf_physics").</summary>
     string SharedMemoryName => "";
 
+    /// <summary>Further map names tried in order when
+    /// <see cref="SharedMemoryName"/> does not exist — one page layout
+    /// published under several names by different games.</summary>
+    IReadOnlyList<string> SharedMemoryAlternateNames => System.Array.Empty<string>();
+
     /// <summary>Bytes of the mapped page to snapshot per poll (the prefix
     /// this source reads).</summary>
     int SharedMemorySize => 0;

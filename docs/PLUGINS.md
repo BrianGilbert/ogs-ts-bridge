@@ -170,6 +170,19 @@ if (packetId == _lastPacketId) return;   // no tick — nothing new
 UDP is push (zero added latency); shared memory adds at most
 `PollIntervalMs` (2 ms ≪ AC's 333 Hz physics write cadence).
 
+When one layout is published under several map names (AC EVO writes
+the acpmf page as `Local\acevo_pmf_physics`), list the others in
+`SharedMemoryAlternateNames`; the forwarder tries them in order.
+
+Pages too large to copy whole, or data split across maps, implement
+`ISharedMemoryGather` (`Rf2Source`): the forwarder maps the primary page
+whole, opens each of `AuxiliaryMapNames` when it appears (retrying every
+~0.25 s), and calls `Gather` to copy only what `Translate` needs into the
+snapshot buffer — the rF2 source copies the player's 1.9 kB vehicle slot
+out of a ~240 kB telemetry array, with the slot found from the scoring
+map. `Gather` returns 0 for "nothing new" (unchanged version, torn
+copy), and must not allocate.
+
 ## SimConnect sources
 
 For Microsoft Flight Simulator (and anything else speaking SimConnect),
@@ -233,8 +246,13 @@ already covers the UDP and MMF pipelines.
 
 Formats still to cover:
 
-- **GT7** — UDP with heartbeat registration and a bespoke encoding.
-- **iRacing** — irsdk memory-mapped broadcast.
+- **GT7** — UDP with heartbeat registration and a Salsa20-encrypted
+  packet (needs the input path to send to the console).
+- **iRacing** — irsdk memory-mapped broadcast (variables resolved by
+  name from the header; a natural `ISharedMemoryGather` source).
+- **Project Motor Racing** — multicast UDP with length-prefixed
+  strings (needs multicast group join on the input socket).
+- **KartKraft** — FlatBuffers motion UDP.
 - **RaceRoom** — `$R3E` shared memory.
 - **ETS2** — SDK shared memory (needs the user-side telemetry DLL
   installed into the game).
