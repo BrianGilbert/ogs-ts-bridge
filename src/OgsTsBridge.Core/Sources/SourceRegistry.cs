@@ -28,6 +28,7 @@ public static class SourceRegistry
         new AcesHighSource(),
         new FlatOut4Source(),
         new TheCrew2Source(),
+        new RushOfBloodSource(),
     };
 
     public static ILegacySource Create(string id)
