@@ -143,6 +143,7 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 | `pmr` | Project Motor Racing (`ProjectMotorRacingGame`) | multicast UDP 224.0.0.150 port 7576 | pose + body dynamics (derived specific force) + wheels + ~250 channels |
 | `gt7` | Gran Turismo 7 (PS4/PS5 on the network; pinned or picked in the GUI) | Simulator Interface UDP (port 33740); heartbeats to the console (`--set console=IP`, default broadcast), Salsa20-decrypted | pose + body dynamics + wheels + channels |
 | `maniaplanet` | ManiaPlanet (`ManiaPlanet`), Trackmania Turbo (`TrackmaniaTurbo`) | `ManiaPlanet_Telemetry` shared memory, 2 ms poll; no setup | pose + world kinematics + wheels + channels |
+| `falconbms` | Falcon BMS 4 (`Falcon BMS`) | `FalconSharedMemoryArea` (+ Area2, IntelliVibe) shared memory, 2 ms poll; no setup | pose + world kinematics + ~400 channels |
 
 A **source is a format, not a game** — when a new title is confirmed to
 emit a covered format, it joins the executable watch list with no new
@@ -319,6 +320,9 @@ escape hatches; see `ogs-ts-bridge list <id>`):
 - `maniaplanet` — the header documents +x left, so vectors and the
   quaternion map as `(−x, y, z)`; no angular rates (kinematics only);
   wheel compression taken as range-max minus damper length.
+- `falconbms` — sim NED feet mapped to OGS world (east, up, north) in m;
+  attitude aerospace-standard radians, direct; the 512-byte RwrInfo blob
+  and the render-to-texture rectangles are not mapped.
 - `msfs` — `PLANE PITCH DEGREES` taken as positive nose-down and
   `PLANE BANK DEGREES` as positive left-down (both negated), with
   `ROTATION VELOCITY BODY` / `ROTATION ACCELERATION BODY` X and Z negated

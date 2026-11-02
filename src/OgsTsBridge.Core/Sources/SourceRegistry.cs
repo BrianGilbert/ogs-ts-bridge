@@ -32,6 +32,7 @@ public static class SourceRegistry
         new PmrSource(),
         new Gt7Source(),
         new ManiaPlanetSource(),
+        new FalconBmsSource(),
     };
 
     public static ILegacySource Create(string id)
