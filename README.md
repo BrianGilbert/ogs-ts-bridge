@@ -135,6 +135,7 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 | `xplane` | X-Plane 11/12 (`X-Plane`) | DATA UDP (port 49100): Settings → Data Output, Network column for rows 3, 4, 16, 17, 18, 20, 37 | pose + body dynamics + air-data channels |
 | `il2` | IL-2 Great Battles (`Il-2`) | `motiondevice` + `telemetrydevice` UDP (port 4321), enabled in `data\startup.cfg` | pose + body dynamics + engine/air channels |
 | `dcs` | DCS World (`DCS`) | export-script UDP (port 42424); `patch --source dcs` installs the script into Saved Games, chained from Export.lua | pose + body dynamics + air-data channels |
+| `condor` | Condor 2 (`Condor`) | key=value UDP (port 55278), `Settings\UDP.ini` Enabled=1 | pose + body dynamics (load factor only) + soaring channels |
 
 A **source is a format, not a game** — when a new title is confirmed to
 emit a covered format, it joins the executable watch list with no new
@@ -276,6 +277,9 @@ escape hatches; see `ogs-ts-bridge list <id>`):
   treated as accelerometer-style g; the export-API field names and the
   angle-of-attack unit (assumed rad) are unverified against the sim's
   Export.lua.
+- `condor` — attitude and rates assumed aerospace-standard; only the
+  normal load factor is reported, so surge and sway read zero; keys
+  without a standard channel are published raw as `condor.<key>`.
 - `msfs` — `PLANE PITCH DEGREES` taken as positive nose-down and
   `PLANE BANK DEGREES` as positive left-down (both negated), with
   `ROTATION VELOCITY BODY` / `ROTATION ACCELERATION BODY` X and Z negated

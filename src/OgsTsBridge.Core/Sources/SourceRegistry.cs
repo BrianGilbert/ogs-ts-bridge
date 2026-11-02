@@ -24,6 +24,7 @@ public static class SourceRegistry
         new XPlaneSource(),
         new Il2Source(),
         new DcsSource(),
+        new CondorSource(),
     };
 
     public static ILegacySource Create(string id)
