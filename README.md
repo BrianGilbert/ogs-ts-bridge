@@ -129,11 +129,12 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 | `lfs` | Live for Speed (`LFS`) | OutSim UDP (port 3156) | pose + body dynamics (derived specific force) |
 | `ac-family` | Assetto Corsa (`acs`), ACC (`acc`), AC EVO (`AssettoCorsaEVO`) | `Local\acpmf_physics` (EVO: `Local\acevo_pmf_physics`) shared memory, 2 ms poll | pose + body dynamics + wheels + channels |
 | `msfs` | Microsoft Flight Simulator 2020 (`FlightSimulator`), 2024 (`FlightSimulator2024`) | SimConnect, every sim frame; no in-sim setup | pose + body dynamics + environment + wheel, propeller and jet drive points + pilot/engine points + ~110 channels |
+| `r3e` | RaceRoom (`RRRE64`, `RRRE`) | `$R3E` shared memory, 2 ms poll; no in-game setup | pose + body dynamics (derived specific force) + wheels + channels |
 
 A **source is a format, not a game** — when a new title is confirmed to
 emit a covered format, it joins the executable watch list with no new
-code. Further formats (GT7, iRacing, RaceRoom, ETS2,
-DCS, X-Plane, the HTTP/journal/memory-read families) are on the roadmap
+code. Further formats (GT7, iRacing, ETS2, DCS, X-Plane, the
+HTTP/journal/memory-read families) are on the roadmap
 in [docs/PLUGINS.md](docs/PLUGINS.md) — the full guide to writing and
 registering new sources.
 
@@ -240,6 +241,13 @@ escape hatches; see `ogs-ts-bridge list <id>`):
   AC EVO is assumed to share the AC/ACC physics-page prefix.
 - `ego` (TDU Solar Crown) — same layout as DR2, but rpm is ÷10: set
   `--set rpmScale=10` when pinning `ego` for Solar Crown.
+- `r3e` — axes per r3e.h (+X left, +Y up, +Z back, left-handed): vectors
+  `(−x, y, −z)`, rates `(−ωx, ωy, −ωz)`, Euler pitch −X / yaw Y / roll −Z
+  (rotation signs unverified); `LocalAcceleration` assumed gravity-free
+  (`gravIncluded` to override); raw steering assumed + right; front
+  road-wheel angle = SteerInputRaw × SteerLockDegrees; `TireWear` taken
+  as fraction remaining; the other cars (the per-driver array) are not
+  mapped.
 - `msfs` — `PLANE PITCH DEGREES` taken as positive nose-down and
   `PLANE BANK DEGREES` as positive left-down (both negated), with
   `ROTATION VELOCITY BODY` / `ROTATION ACCELERATION BODY` X and Z negated

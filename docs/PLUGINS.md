@@ -261,7 +261,6 @@ Formats still to cover:
 - **Project Motor Racing** — multicast UDP with length-prefixed
   strings (needs multicast group join on the input socket).
 - **KartKraft** — FlatBuffers motion UDP.
-- **RaceRoom** — `$R3E` shared memory.
 - **ETS2** — SDK shared memory (needs the user-side telemetry DLL
   installed into the game).
 - **DCS** — export-script UDP (needs a Lua file shipped into the game).
