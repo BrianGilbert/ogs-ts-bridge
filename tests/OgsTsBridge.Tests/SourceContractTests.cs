@@ -22,6 +22,29 @@ public class SourceContractTests
         }
     }
 
+    /// <summary>A source is a format: a game that speaks a covered format
+    /// joins that source's watch list instead of getting a second source,
+    /// so no executable may be claimed twice (auto mode would otherwise
+    /// pick whichever source happens to be listed first).</summary>
+    [Fact]
+    public void EveryProcessBelongsToExactlyOneSource()
+    {
+        var dupes = SourceRegistry.All()
+            .SelectMany(s => s.ProcessNames.Select(p => (source: s.Id, process: p.ToLowerInvariant())))
+            .GroupBy(x => x.process)
+            .Where(g => g.Count() > 1)
+            .Select(g => $"{g.Key}: {string.Join(", ", g.Select(x => x.source))}")
+            .ToList();
+        Assert.True(dupes.Count == 0, "processes claimed by several sources: " + string.Join("; ", dupes));
+    }
+
+    [Fact]
+    public void SourceIdsAreUnique()
+    {
+        var ids = SourceRegistry.All().Select(s => s.Id.ToLowerInvariant()).ToList();
+        Assert.Equal(ids.Count, ids.Distinct().Count());
+    }
+
     /// <summary>The GUI dropdown is game-per-item; display names must be
     /// unique so type-ahead resolves to exactly one game.</summary>
     [Fact]
