@@ -261,7 +261,6 @@ Formats still to cover:
 - **Project Motor Racing** — multicast UDP with length-prefixed
   strings (needs multicast group join on the input socket).
 - **KartKraft** — FlatBuffers motion UDP.
-- **DCS** — export-script UDP (needs a Lua file shipped into the game).
 - **War Thunder / FSX / Farming Sim 19 / Fernbus** — HTTP/local
   APIs (FSX speaks SimConnect too).
 - **Elite Dangerous** — journal/status files; **GTA5 / Star Wars
