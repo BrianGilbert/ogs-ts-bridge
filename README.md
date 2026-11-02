@@ -128,7 +128,7 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 | `wrc` | WRC (Generations-era, `WRC`) | WRC UDP (port 20777) | pose + world kinematics + channels |
 | `lfs` | Live for Speed (`LFS`) | OutSim UDP (port 3156) | pose + body dynamics (derived specific force) |
 | `ac-family` | Assetto Corsa (`acs`), ACC (`acc`), AC EVO (`AssettoCorsaEVO`) | `Local\acpmf_physics` (EVO: `Local\acevo_pmf_physics`) shared memory, 2 ms poll | pose + body dynamics + wheels + channels |
-| `msfs` | Microsoft Flight Simulator 2020 (`FlightSimulator`), 2024 (`FlightSimulator2024`) | SimConnect, every sim frame; no in-sim setup | pose + body dynamics + environment + wheel, propeller and jet drive points + pilot/engine points + ~110 channels |
+| `msfs` | Microsoft Flight Simulator 2020 (`FlightSimulator`), 2024 (`FlightSimulator2024`), FSX: Steam Edition (`fsx`, unverified) | SimConnect, every sim frame; no in-sim setup | pose + body dynamics + environment + wheel, propeller and jet drive points + pilot/engine points + ~110 channels |
 | `r3e` | RaceRoom (`RRRE64`, `RRRE`) | `$R3E` shared memory, 2 ms poll; no in-game setup | pose + body dynamics (derived specific force) + wheels + channels |
 | `rf2` | rFactor 2 (`rFactor2`), Le Mans Ultimate (`Le Mans Ultimate`) | rF2 Shared Memory Map Plugin (`$rFactor2SMMP_*`: telemetry, scoring, extended, force feedback), 2 ms poll; enable the plugin in-game | pose + body dynamics (derived specific force) + wheels with rpm and surface + channels |
 | `scs` | Euro Truck Simulator 2 (`eurotrucks2`), American Truck Simulator (`amtrucks`) | `Local\Ets2TelemetryServer` shared memory from the ets2-telemetry-server plugin DLL (install it into `bin\win_x64\plugins`) | pose + body dynamics (derived specific force) + channels |

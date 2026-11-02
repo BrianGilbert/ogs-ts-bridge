@@ -9,7 +9,9 @@ namespace OgsTsBridge.Sources
 {
 /// <summary>
 /// Microsoft Flight Simulator 2020 and 2024 over SimConnect, mapped per
-/// the standard's MSFS sender reference (reference-msfs2024.md).
+/// the standard's MSFS sender reference (reference-msfs2024.md). FSX: Steam
+/// Edition is on the watch list too, unverified: FSX is 32-bit and the
+/// bundled client is the MSFS SimConnect.dll.
 ///
 /// Schema: pose (local-tangent position re-origined on teleport,
 /// orientation from PLANE PITCH/BANK/HEADING), body dynamics from
@@ -296,12 +298,15 @@ public sealed class MsfsSource : ISimConnectSource
         "setup; the Bridge connects once a flight is loading.";
     public int DefaultPort => 0;
 
-    public IReadOnlyList<string> ProcessNames { get; } = new[] { "FlightSimulator", "FlightSimulator2024" };
+    // FSX (Steam Edition) speaks SimConnect too; whether the bundled MSFS
+    // client library talks to its server is unverified
+    public IReadOnlyList<string> ProcessNames { get; } = new[] { "FlightSimulator", "FlightSimulator2024", "fsx" };
 
     public IReadOnlyList<LegacyGame> Games { get; } = new[]
     {
         new LegacyGame("Microsoft Flight Simulator (2020)", "FlightSimulator"),
         new LegacyGame("Microsoft Flight Simulator 2024", "FlightSimulator2024"),
+        new LegacyGame("Microsoft Flight Simulator X: Steam Edition (unverified)", "fsx"),
     };
 
     public SourceTransport Transport => SourceTransport.SimConnect;
