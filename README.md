@@ -121,7 +121,7 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 | Source | Games (watched executables) | Input | Object payload |
 |---|---|---|---|
 | `beamng` | BeamNG.drive | 88-byte UDP (port 4444), telemetry output ON in Options → Gameplay | pose + world kinematics |
-| `forza-sled` | Forza Horizon 4/5, Forza Motorsport 7+ | 232-byte "Sled" UDP (port 5300), Settings → Data Out → this machine, packet type Sled | pose + body dynamics + 4 wheel drive points + channels |
+| `forza-sled` | Forza Horizon 4/5/6, Forza Motorsport 7+ | 232-byte "Sled" UDP (port 5300), Settings → Data Out → this machine, packet type Sled | pose + body dynamics + 4 wheel drive points + channels |
 | `ego` | Dirt Rally 2 (`dirtrally2`), DiRT 4 (`dirt4`) | EGO UDP (port 20777), byte order auto-detected | pose + world kinematics + wheels + g-force channels |
 | `sms` | pCARS2 (`pCARS2AVX`), AMS2 (`AMS2AVX`), pCARS3 (`pCARS3`) | SMS UDP (port 5606) | pose + body dynamics + channels |
 | `f1` | F1 2020–2024 | Codemasters UDP (port 20777), motion + telemetry packets | pose + body dynamics + channels (2023+) |

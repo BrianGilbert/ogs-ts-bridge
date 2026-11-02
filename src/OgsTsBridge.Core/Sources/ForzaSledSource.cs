@@ -8,7 +8,7 @@ namespace OgsTsBridge.Sources
 {
 /// <summary>
 /// Forza "Sled" telemetry — the 232-byte UDP packet shared by Forza
-/// Motorsport 7+ and Forza Horizon 4/5. Enable in-game: Settings → Data Out, point it at this
+/// Motorsport 7+ and Forza Horizon 4/5/6. Enable in-game: Settings → Data Out, point it at this
 /// machine, packet type "Sled".
 ///
 /// The packet has no world position — the car never leaves the origin and
@@ -62,17 +62,18 @@ public sealed class ForzaSledSource : ILegacySource
     public string Id => "forza-sled";
     public string Title => "Forza (Sled format)";
     public string Description =>
-        "Forza Motorsport 7+ / Horizon 4/5 'Sled' 232-byte UDP telemetry. " +
+        "Forza Motorsport 7+ / Horizon 4/5/6 'Sled' 232-byte UDP telemetry. " +
         "In-game: Settings → Data Out → this machine's IP, packet type Sled.";
     public int DefaultPort => 5300;
 
     public IReadOnlyList<string> ProcessNames { get; } = new[]
     {
-        "ForzaHorizon5", "ForzaHorizon4", "ForzaMotorsport", "ForzaMotorsport7",
+        "ForzaHorizon6", "ForzaHorizon5", "ForzaHorizon4", "ForzaMotorsport", "ForzaMotorsport7",
     };
 
     public IReadOnlyList<LegacyGame> Games { get; } = new[]
     {
+        new LegacyGame("Forza Horizon 6", "ForzaHorizon6"),
         new LegacyGame("Forza Horizon 5", "ForzaHorizon5"),
         new LegacyGame("Forza Horizon 4", "ForzaHorizon4"),
         new LegacyGame("Forza Motorsport (7+)", "ForzaMotorsport"),
