@@ -144,6 +144,7 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 | `gt7` | Gran Turismo 7 (PS4/PS5 on the network; pinned or picked in the GUI) | Simulator Interface UDP (port 33740); heartbeats to the console (`--set console=IP`, default broadcast), Salsa20-decrypted | pose + body dynamics + wheels + channels |
 | `maniaplanet` | ManiaPlanet (`ManiaPlanet`), Trackmania Turbo (`TrackmaniaTurbo`) | `ManiaPlanet_Telemetry` shared memory, 2 ms poll; no setup | pose + world kinematics + wheels + channels |
 | `falconbms` | Falcon BMS 4 (`Falcon BMS`) | `FalconSharedMemoryArea` (+ Area2, IntelliVibe) shared memory, 2 ms poll; no setup | pose + world kinematics + ~400 channels |
+| `iracing` | iRacing (`iRacingSim64DX11`) | irsdk shared memory, 2 ms poll; no setup | pose + body dynamics + wheels + every irsdk variable |
 
 A **source is a format, not a game** — when a new title is confirmed to
 emit a covered format, it joins the executable watch list with no new
@@ -323,6 +324,11 @@ escape hatches; see `ogs-ts-bridge list <id>`):
 - `falconbms` — sim NED feet mapped to OGS world (east, up, north) in m;
   attitude aerospace-standard radians, direct; the 512-byte RwrInfo blob
   and the render-to-texture rectangles are not mapped.
+- `iracing` — car axes taken as x forward, y left, z up: body vectors
+  `(−y, z, x)`, rates `(−PitchRate, −YawRate, RollRate)`, yaw negated;
+  Lat/Long/VertAccel taken as accelerometer-style; the CarIdx* arrays
+  (other cars) are not mapped; variables whose irsdk unit is unknown are
+  published raw.
 - `msfs` — `PLANE PITCH DEGREES` taken as positive nose-down and
   `PLANE BANK DEGREES` as positive left-down (both negated), with
   `ROTATION VELOCITY BODY` / `ROTATION ACCELERATION BODY` X and Z negated

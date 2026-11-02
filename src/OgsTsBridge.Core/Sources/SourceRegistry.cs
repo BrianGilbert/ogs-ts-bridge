@@ -33,6 +33,7 @@ public static class SourceRegistry
         new Gt7Source(),
         new ManiaPlanetSource(),
         new FalconBmsSource(),
+        new IRacingSource(),
     };
 
     public static ILegacySource Create(string id)
