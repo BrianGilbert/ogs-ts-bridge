@@ -127,7 +127,7 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 | `f1` | F1 2020–2024 | Codemasters UDP (port 20777), motion + telemetry packets | pose + body dynamics + channels (2023+) |
 | `wrc` | WRC (Generations-era, `WRC`) | WRC UDP (port 20777) | pose + world kinematics + channels |
 | `lfs` | Live for Speed (`LFS`) | OutSim UDP (port 3156) | pose + body dynamics (derived specific force) |
-| `ac-family` | Assetto Corsa (`acs`), ACC (`acc`) | `Local\acpmf_physics` shared memory, 2 ms poll | pose + body dynamics + wheels + channels |
+| `ac-family` | Assetto Corsa (`acs`), ACC (`acc`), AC EVO (`AssettoCorsaEVO`) | `Local\acpmf_physics` (EVO: `Local\acevo_pmf_physics`) shared memory, 2 ms poll | pose + body dynamics + wheels + channels |
 | `msfs` | Microsoft Flight Simulator 2020 (`FlightSimulator`), 2024 (`FlightSimulator2024`) | SimConnect, every sim frame; no in-sim setup | pose + body dynamics + environment + wheel, propeller and jet drive points + pilot/engine points + ~110 channels |
 
 A **source is a format, not a game** — when a new title is confirmed to
@@ -237,6 +237,7 @@ escape hatches; see `ogs-ts-bridge list <id>`):
 - `ac-family` — AccG order assumed (lateral, longitudinal, vertical) in
   g, gravity included; heading/pitch/roll direct; fuel/gear emitted raw
   (game encoding unverified).
+  AC EVO is assumed to share the AC/ACC physics-page prefix.
 - `msfs` — `PLANE PITCH DEGREES` taken as positive nose-down and
   `PLANE BANK DEGREES` as positive left-down (both negated), with
   `ROTATION VELOCITY BODY` / `ROTATION ACCELERATION BODY` X and Z negated

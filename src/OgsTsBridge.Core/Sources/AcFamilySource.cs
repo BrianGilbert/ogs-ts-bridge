@@ -7,10 +7,12 @@ using System.Runtime.InteropServices;
 namespace OgsTsBridge.Sources
 {
 /// <summary>
-/// Generic Kunos acpmf shared-memory source — one format, two games:
-/// Assetto Corsa (acs.exe) and Assetto Corsa Competizione (acc.exe) write
-/// the same physics-page prefix (the ACC struct extends AC's). Enable the
-/// shared memory / "free server" developer option in-game.
+/// Generic Kunos acpmf shared-memory source — one format, three games:
+/// Assetto Corsa (acs.exe), Assetto Corsa Competizione (acc.exe) and
+/// Assetto Corsa EVO (AssettoCorsaEVO.exe) write the same physics-page
+/// prefix (the ACC struct extends AC's; EVO publishes it under its own
+/// map name, Local\acevo_pmf_physics). Enable the shared memory / "free
+/// server" developer option in-game where the title has one.
 ///
 /// Physics page prefix (the assettocorsasharedmemory
 /// layout, Pack=4): PacketId @0, Gas @4,
@@ -33,24 +35,26 @@ public sealed class AcFamilySource : ILegacySource
     int _lastPacketId = int.MinValue;
 
     public string Id => "ac-family";
-    public string Title => "Kunos acpmf (Assetto Corsa / ACC)";
+    public string Title => "Kunos acpmf (Assetto Corsa / ACC / EVO)";
     public string Description =>
-        "Kunos shared-memory physics page (Local\\acpmf_physics) — Assetto " +
-        "Corsa and Competizione. Enable the game's shared-memory/free-server " +
-        "developer option.";
+        "Kunos shared-memory physics page (Local\\acpmf_physics; EVO: " +
+        "Local\\acevo_pmf_physics) — Assetto Corsa, Competizione and EVO. " +
+        "Enable the game's shared-memory/free-server developer option.";
     public int DefaultPort => 0;
 
-    public IReadOnlyList<string> ProcessNames { get; } = new[] { "acs", "acc" };
+    public IReadOnlyList<string> ProcessNames { get; } = new[] { "acs", "acc", "AssettoCorsaEVO" };
 
     public IReadOnlyList<LegacyGame> Games { get; } = new[]
     {
         new LegacyGame("Assetto Corsa", "acs"),
         new LegacyGame("Assetto Corsa Competizione", "acc"),
+        new LegacyGame("Assetto Corsa EVO", "AssettoCorsaEVO"),
     };
 
 
     public SourceTransport Transport => SourceTransport.SharedMemory;
     public string SharedMemoryName => "Local\\acpmf_physics";
+    public IReadOnlyList<string> SharedMemoryAlternateNames { get; } = new[] { "Local\\acevo_pmf_physics" };
     public int SharedMemorySize => 220;
     public int PollIntervalMs => 2;
 
