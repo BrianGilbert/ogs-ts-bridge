@@ -25,6 +25,7 @@ public static class SourceRegistry
         new Il2Source(),
         new DcsSource(),
         new CondorSource(),
+        new AcesHighSource(),
     };
 
     public static ILegacySource Create(string id)
