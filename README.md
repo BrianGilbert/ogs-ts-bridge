@@ -151,10 +151,10 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 
 A **source is a format, not a game** — when a new title is confirmed to
 emit a covered format, it joins the executable watch list with no new
-code. Further formats (GT7, iRacing, the HTTP/journal/memory-read
-families) are on the roadmap
-in [docs/PLUGINS.md](docs/PLUGINS.md) — the full guide to writing and
-registering new sources.
+code. What is still uncovered (games that need a game-side add-on of
+our own, X-Wing Alliance's upgrade-mod output, KartKraft and the
+engine-mod titles) is on the roadmap in [docs/PLUGINS.md](docs/PLUGINS.md)
+— the full guide to writing and registering new sources.
 
 Every datagram the Bridge sends is at most 1,400 bytes, the standard's
 [datagram budget](https://github.com/Open-Game-Standards/OGS-Telemetry-Standard/blob/main/implementation-udp.md#datagram-budget):
