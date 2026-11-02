@@ -1,6 +1,7 @@
 # sync-core.ps1 — vendor the engine-agnostic C# core from ogs-ts-dotnet
 # (envelope, sender, unit conversions, canonical encoder + generated schema
-# writers, conformance vectors; the receiver and publisher stay upstream —
+# writers, datagram-budget paging, conformance vectors; the receiver and
+# publisher stay upstream —
 # this app builds its own latency-first frames). The tests decode what the
 # app sends, so they also get the receive side's Capnp.Net readers — test
 # project only; the app ships no Cap'n Proto runtime — and the standard's
@@ -60,10 +61,11 @@ try {
     Sync-Files @(
         "$src/Envelope.cs", "$src/TelemetrySender.cs", "$src/Unit.cs",
         "$src/Conversions.cs", "$src/Wire.cs", "$src/ConformanceVectors.cs",
+        "$src/Paging.cs",
         "$src/Schema/ogs_telemetry.writers.cs",
         "$dotnet/LICENSE") "OgsTelemetry"
     Sync-Files @(
-        "$recv/MessageDecoder.cs",
+        "$recv/MessageDecoder.cs", "$recv/DescriptorTables.cs",
         "$recv/Schema/ogs_telemetry.capnp.cs",
         "$dotnet/LICENSE") "tests/OgsTsBridge.Tests/Vendored"
     Sync-Files @("$standard/LICENSE") "tests/OgsTsBridge.Tests/Vendored/conformance" 'LICENSE'

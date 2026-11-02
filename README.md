@@ -137,6 +137,14 @@ DCS, X-Plane, the HTTP/journal/memory-read families) are on the roadmap
 in [docs/PLUGINS.md](docs/PLUGINS.md) — the full guide to writing and
 registering new sources.
 
+Every datagram the Bridge sends is at most 1,400 bytes, the standard's
+[datagram budget](https://github.com/Open-Game-Standards/OGS-Telemetry-Standard/blob/main/implementation-udp.md#datagram-budget):
+a large discovery goes out as pages (every page at start and after a
+change, then spread across each 2-second re-send, so no single tick pays
+for the whole set), a tick with many values goes out as parts with the
+pose first, and the discovery generation increments when the vehicle or
+location changes.
+
 Channel mapping follows the standard's [Common Channels Annex] where a
 concept is ratified (`engine.rpm`, `vehicle.speed`, …); wheel-level data
 rides schema `WheelState` drive points rather than flat channels.
@@ -144,9 +152,8 @@ rides schema `WheelState` drive points rather than flat channels.
 `msfs` maps the standard's [MSFS sender reference]: air data, wind,
 controls, per-engine data (`engine[n].*`), fuel, electrics, radios,
 lights, cabin, pushback, touchdown and session state, alongside the
-schema fields. Its discovery is larger than one datagram MTU (it is
-re-sent every 2 s, so a lost fragment heals); motion frames carry only
-the channels that changed, plus `session.paused` on every frame. When
+schema fields. Its discovery spans several pages; motion frames carry
+only the channels that changed, plus `session.paused` on every frame. When
 the sim pauses, or sits in its menus, frames keep flowing with
 `session.paused` set and no dynamics (CONVENTIONS C-11). The
 `SimConnect.dll` client ships with the Bridge

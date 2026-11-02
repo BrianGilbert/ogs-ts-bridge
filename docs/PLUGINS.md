@@ -79,8 +79,9 @@ public sealed class SmsSource : ILegacySource
         session.DeclareObject("car", Ogs.Telemetry.Schema.ObjectType.Vehicle, "SMS-engine car");
         _rpm   = session.AddChannel("engine.rpm", "rpm", "Current engine rpm");
         _speed = session.AddChannel("vehicle.speed", "m/s", "Speed over ground");
-        // keep discovery under ~1.4 kB — per-wheel data belongs in
-        // WheelState drive points, not flat channels
+        // per-wheel data belongs in WheelState drive points, not flat
+        // channels; the session pages discovery and splits large ticks
+        // to keep every datagram within the 1,400-byte budget
     }
 
     public bool AcceptsDatagram(int length) => length >= 116;
@@ -212,9 +213,16 @@ events; `OnIdle` runs when a wait passes without data, so a paused sim
 keeps streaming per CONVENTIONS C-11.
 
 Large channel sets call `session.SendChangedChannelsOnly()` in
-`Declare`: motion frames then carry only changed values (plus a full
-refresh after each discovery), and `session.AlwaysSend(channel)` keeps a
-channel like `session.paused` in every frame.
+`Declare`: motion frames then carry only changed values (plus a paced
+refresh that re-sends every value within each discovery interval), and
+`session.AlwaysSend(channel)` keeps a channel like `session.paused` in
+every frame. Whatever the channel count, the session keeps every datagram
+within the 1,400-byte budget: discovery is paged and a large tick goes
+out in parts. Text that changes rarely (track, vehicle, driver) rides
+session text channels (`AddSessionText`): a change re-sends only the
+discovery page carrying it. A vehicle swap that changes the descriptors
+goes through `BeginRedeclare`/`CommitRedeclare`, which starts a new
+generation; `SetTypeLabel` and `SetLocation` do too.
 
 ## Testing
 

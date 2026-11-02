@@ -30,6 +30,18 @@ public readonly struct OgsChannel
 /// cap only protects against a misbehaving source flooding the group).
 /// Discovery rides the same thread, re-sent every 2 s per
 /// implementation-udp.md.
+///
+/// Datagram budget (implementation-udp.md § Datagram budget): every
+/// datagram is at most 1,400 bytes. Discovery is cached as pages
+/// (DiscoveryPager) — all of them at Start, on a redeclare and on an
+/// identity or environment change, otherwise spread across each re-send
+/// interval, so no tick pays for the whole set; a session-text change
+/// re-sends only the page carrying the values. A tick with more channel
+/// values than one datagram holds goes out as back-to-back parts with the
+/// pose in part 0 (reused part graphs: no per-tick allocation once warm).
+/// Changed-only sessions refresh every value within each interval,
+/// spread across ticks. The generation increments on a redeclare and on a
+/// type-label or location change once discovery has gone out.
 /// </summary>
 public sealed class OgsSession : IDisposable
 {
@@ -81,20 +93,22 @@ public sealed class OgsSession : IDisposable
     readonly Schema.ChannelValue?[] _sessionValue = new Schema.ChannelValue?[MaxChannels];
     readonly byte[]?[] _sessionBytes = new byte[]?[MaxChannels];
     readonly List<Schema.ChannelValue> _sessionValues = new();
-    bool _discoveryDue;
 
     // changed-only channel mode: a channel rides the motion frame when its
     // value differs from the last one sent, when it is marked always-sent,
-    // or on the full refresh that follows each discovery send; a channel
-    // never set (its source variable unavailable) is never sent
+    // or when the bounded refresh reaches it (every value once per
+    // discovery interval, spread across ticks); a channel never set (its
+    // source variable unavailable) is never sent
     bool _changedOnly;
     readonly bool[] _valueSet = new bool[MaxChannels];
     readonly bool[] _alwaysSend = new bool[MaxChannels];
     readonly bool[] _everSent = new bool[MaxChannels];
     readonly float[] _sentNumber = new float[MaxChannels];
     readonly bool[] _sentBool = new bool[MaxChannels];
-    bool _refreshDue = true;
     readonly List<Schema.ChannelValue> _changedValues = new(); // reused list
+    int _refreshCursor;                        // next channel id of the refresh cycle
+    double _refreshCycleStart = double.NaN;    // when the current cycle began
+    readonly bool[] _addedThisTick = new bool[MaxChannels];
 
     // drive point state cache (one reused drive point each) + per-tick dirty list
     readonly List<Schema.DrivePoint> _points = new();
@@ -102,8 +116,17 @@ public sealed class OgsSession : IDisposable
     readonly List<Schema.DrivePoint> _drivePoints = new(); // reused list
 
     // cached wire graphs
-    Schema.DiscoveryFrame? _discoveryFrame;
-    Schema.MotionFrame? _motionFrame;
+    Schema.DiscoveryFrame? _discoveryFrame;    // the complete set (unpaged view)
+    List<Schema.DiscoveryFrame>? _pages;       // what is sent: one page or many
+    readonly List<int> _valuePages = new();    // pages carrying session values
+    bool _sendAllPages = true, _sendValuePages;
+    int _nextPage;                             // next page of the current re-send cycle
+    uint _generation;
+    bool _discoverySent;
+    Schema.MotionFrame? _motionFrame;          // part 0
+    readonly List<Schema.MotionFrame> _parts = new();              // part 0, then reused later parts
+    readonly List<List<Schema.ChannelValue>> _partValues = new();  // each part's value list
+    int _partCount = 1, _part0Capacity, _partCapacity;
     List<Schema.ChannelValue>? _motionValues;
     readonly Schema.ChannelValue?[] _motionById = new Schema.ChannelValue?[MaxChannels];
 
@@ -325,9 +348,15 @@ public sealed class OgsSession : IDisposable
     {
         _locked = true;
         if (double.IsNaN(_anchor)) _anchor = nowSeconds;
-        SendDiscovery(nowSeconds);
-        SendDiscovery(nowSeconds);
+        SendAllPages(nowSeconds);
+        SendAllPages(nowSeconds);
     }
+
+    /// <summary>The descriptor-set generation discovery and motion carry.</summary>
+    public uint Generation => _generation;
+
+    /// <summary>Discovery pages of the current set (1 = unpaged).</summary>
+    public int DiscoveryPageCount => Pages().Count;
 
     // ---- redeclaration (descriptor change: vehicle swap) ----
 
@@ -358,8 +387,13 @@ public sealed class OgsSession : IDisposable
         _sessionValues.Clear();
         _channelCount = 0;
         _discoveryFrame = null;
+        _pages = null;
         _motionFrame = null;
         _motionValues = null;
+        _parts.Clear();
+        _partValues.Clear();
+        _partCount = 1;
+        _refreshCursor = 0;
         _locked = false;
     }
 
@@ -369,8 +403,9 @@ public sealed class OgsSession : IDisposable
     {
         _locked = true;
         if (double.IsNaN(_anchor)) _anchor = nowSeconds;
-        SendDiscovery(nowSeconds);
-        SendDiscovery(nowSeconds);
+        if (_discoverySent) _generation++; // ids may be reassigned: a new generation
+        SendAllPages(nowSeconds);
+        SendAllPages(nowSeconds);
     }
 
     // ---- hot path (receive thread only) ----
@@ -478,8 +513,9 @@ public sealed class OgsSession : IDisposable
     {
         if (UpdateText(ref _sessionBytes[channel.Id], utf8, out var text))
         {
+            // pages share the value instances: re-send only the values page
             _sessionValue[channel.Id]!.Text = text;
-            _discoveryDue = true;
+            _sendValuePages = true;
         }
     }
 
@@ -487,7 +523,7 @@ public sealed class OgsSession : IDisposable
     {
         if (_sessionValue[channel.Id]!.Text == text) return;
         _sessionValue[channel.Id]!.Text = text;
-        _discoveryDue = true;
+        _sendValuePages = true;
     }
 
     /// <summary>Updates the object's display location (track/place name)
@@ -497,7 +533,7 @@ public sealed class OgsSession : IDisposable
         if (!UpdateText(ref _locationBytes, utf8, out var text)) return;
         _location = text.Length == 0 ? "local" : text;
         if (_discoveryFrame is not null) _discoveryFrame.Objects![0].Location = _location;
-        _discoveryDue = true;
+        IdentityChanged();
     }
 
     /// <summary>Updates the object's type label (vehicle/aircraft name —
@@ -508,7 +544,16 @@ public sealed class OgsSession : IDisposable
         if (!UpdateText(ref _typeLabelBytes, utf8, out var text)) return;
         _typeLabel = text;
         if (_discoveryFrame is not null) _discoveryFrame.Objects![0].TypeLabel = _typeLabel;
-        _discoveryDue = true;
+        IdentityChanged();
+    }
+
+    // object identity changed: a new generation once receivers hold tables,
+    // the pages rebuilt and every one re-sent at the next tick (cold path)
+    void IdentityChanged()
+    {
+        if (_discoverySent) _generation++;
+        _pages = null;
+        _sendAllPages = true;
     }
 
     static bool UpdateText(ref byte[]? cache, ReadOnlySpan<byte> utf8, out string text)
@@ -539,6 +584,8 @@ public sealed class OgsSession : IDisposable
     public void SetEnvironment(float airDensity, float temperature, float pressure)
     {
         _airDensity = airDensity; _temperature = temperature; _pressure = pressure;
+        if (_pages is not null)
+            foreach (var page in _pages) FillEnvironment(page.Environment);
         if (!_environmentSet) { _environmentSet = true; _environmentPending = true; }
     }
 
@@ -550,13 +597,13 @@ public sealed class OgsSession : IDisposable
         if (double.IsNaN(_anchor)) _anchor = nowSeconds;
         _locked = true;
 
-        if (_environmentPending || _discoveryDue || nowSeconds - _lastDiscovery >= _discoveryInterval)
-            SendDiscovery(nowSeconds);
+        PaceDiscovery(nowSeconds);
 
         if (nowSeconds - _lastMotion < _minMotionInterval)
             return;
 
-        Send(FrameType.Motion, BuildMotion(nowSeconds));
+        int parts = BuildMotion(nowSeconds);
+        for (int i = 0; i < parts; i++) Send(FrameType.Motion, _parts[i]);
         _lastMotion = nowSeconds;
     }
 
@@ -566,11 +613,75 @@ public sealed class OgsSession : IDisposable
     public void DiscoveryKeepAlive(double nowSeconds)
     {
         if (double.IsNaN(_anchor)) return; // not started yet
-        if (nowSeconds - _lastDiscovery >= _discoveryInterval)
-            SendDiscovery(nowSeconds);
+        PaceDiscovery(nowSeconds);
     }
 
-    void SendDiscovery(double nowSeconds)
+    // Pacing (implementation-udp.md § Send cadence): every page back-to-back
+    // after a change; the values page alone after a session-text change;
+    // otherwise each re-send cycle spreads the pages across the interval.
+    void PaceDiscovery(double nowSeconds)
+    {
+        if (_sendAllPages || _environmentPending) { SendAllPages(nowSeconds); return; }
+        var pages = Pages();
+        if (_sendValuePages)
+        {
+            foreach (int i in _valuePages) Send(FrameType.Discovery, pages[i]);
+            _sendValuePages = false;
+        }
+        if (nowSeconds - _lastDiscovery >= _discoveryInterval)
+        {
+            _lastDiscovery = nowSeconds;
+            _nextPage = 0;
+        }
+        double spacing = _discoveryInterval / pages.Count;
+        while (_nextPage < pages.Count && nowSeconds - _lastDiscovery >= _nextPage * spacing)
+            Send(FrameType.Discovery, pages[_nextPage++]);
+    }
+
+    void SendAllPages(double nowSeconds)
+    {
+        var pages = Pages();
+        foreach (var page in pages) Send(FrameType.Discovery, page);
+        _lastDiscovery = nowSeconds;
+        _nextPage = pages.Count;
+        _sendAllPages = _sendValuePages = _environmentPending = false;
+        _discoverySent = true;
+        // late joiners get every value within the interval
+        _refreshCursor = 0;
+        _refreshCycleStart = nowSeconds;
+    }
+
+    List<Schema.DiscoveryFrame> Pages()
+    {
+        if (_pages is not null) return _pages;
+        var complete = CompleteDiscovery();
+        _pages = DiscoveryPager.Paginate(() =>
+        {
+            var page = NewDiscovery();
+            FillEnvironment(page.Environment);
+            return page;
+        }, complete.Objects!, _generation);
+        _valuePages.Clear();
+        for (int i = 0; i < _pages.Count; i++)
+            foreach (var o in _pages[i].Objects!)
+                if (o.Values is { Count: > 0 }) { _valuePages.Add(i); break; }
+        return _pages;
+    }
+
+    void FillEnvironment(Schema.Environment env)
+    {
+        env.Gravity = _gravity; env.Medium = Schema.ContactMedium.Asphalt;
+        env.AirDensity = _airDensity; env.Temperature = _temperature; env.Pressure = _pressure; // Pa
+    }
+
+    Schema.DiscoveryFrame NewDiscovery() => new()
+    {
+        SchemaVersion = 1,
+        GameName = _gameName,
+        SessionStartUnixUs = _sessionStartTicks / 10, // .NET ticks (100 ns) → µs
+    };
+
+    Schema.DiscoveryFrame CompleteDiscovery()
     {
         _discoveryFrame ??= new Schema.DiscoveryFrame
         {
@@ -598,13 +709,8 @@ public sealed class OgsSession : IDisposable
                 },
             },
         };
-        var env = _discoveryFrame.Environment;
-        env.AirDensity = _airDensity; env.Temperature = _temperature; env.Pressure = _pressure; // Pa
-        Send(FrameType.Discovery, _discoveryFrame);
-        _lastDiscovery = nowSeconds;
-        _environmentPending = false;
-        _discoveryDue = false;
-        _refreshDue = true;
+        FillEnvironment(_discoveryFrame.Environment);
+        return _discoveryFrame;
     }
 
     void Send(FrameType type, WireStruct frame)
@@ -617,7 +723,8 @@ public sealed class OgsSession : IDisposable
     // Reuses the cached object graph; setting a value re-selects its union
     // variant, so a mutated graph encodes exactly like a fresh one (same
     // technique as the upstream TelemetryPublisher).
-    Schema.MotionFrame BuildMotion(double nowSeconds)
+    // Returns the number of parts this tick fills (_parts[0..n)).
+    int BuildMotion(double nowSeconds)
     {
         if (_motionFrame is null)
         {
@@ -630,6 +737,7 @@ public sealed class OgsSession : IDisposable
                 _motionById[i] = cv;
             }
             _motionValues = values;
+            _partValues.Add(new List<Schema.ChannelValue>(values.Count));
             _motionFrame = new Schema.MotionFrame
             {
                 Objects = new List<Schema.MotionObject>
@@ -637,11 +745,13 @@ public sealed class OgsSession : IDisposable
                     new()
                     {
                         Name = _objectName,
-                        Channels = _changedOnly ? _changedValues : values,
+                        Channels = _partValues[0],
                         DrivePoints = _drivePoints,
                     },
                 },
             };
+            _parts.Add(_motionFrame);
+            PlanParts();
         }
 
         var obj = _motionFrame.Objects![0];
@@ -683,33 +793,103 @@ public sealed class OgsSession : IDisposable
             _pointDirty[i] = false;
         }
 
-        if (_motionValues is not null)
-        {
-            if (_changedOnly) WriteChangedValues();
-            else
-                for (int i = 0; i < _channelCount; i++)
-                {
-                    var cv = _motionById[i];
-                    if (cv is null) continue;
-                    if (_isBool[i])
-                        cv.Boolean = _boolSet[i] && _boolValue[i];
-                    else
-                        cv.Number = (float)_pushed[i];
-                    _boolSet[i] = false; // one-shot: absent booleans read false next tick
-                }
-        }
+        List<Schema.ChannelValue> tickValues = _motionValues!;
+        if (_changedOnly) { WriteChangedValues(nowSeconds); tickValues = _changedValues; }
+        else
+            for (int i = 0; i < _channelCount; i++)
+            {
+                var cv = _motionById[i];
+                if (cv is null) continue;
+                if (_isBool[i])
+                    cv.Boolean = _boolSet[i] && _boolValue[i];
+                else
+                    cv.Number = (float)_pushed[i];
+                _boolSet[i] = false; // one-shot: absent booleans read false next tick
+            }
 
-        _motionFrame.Timestamp = nowSeconds - _anchor;
-        return _motionFrame;
+        // split the tick's values into parts within the datagram budget
+        int n = tickValues.Count;
+        int parts = n <= _part0Capacity ? 1 : 1 + (n - _part0Capacity + _partCapacity - 1) / _partCapacity;
+        EnsureParts(parts);
+        int next = 0;
+        for (int part = 0; part < parts; part++)
+        {
+            var list = _partValues[part];
+            list.Clear();
+            int take = Math.Min(part == 0 ? _part0Capacity : _partCapacity, n - next);
+            for (int k = 0; k < take; k++) list.Add(tickValues[next++]);
+            var frame = _parts[part];
+            frame.Timestamp = nowSeconds - _anchor;
+            frame.Generation = _generation;
+            frame.Part = parts > 1 ? (ushort)part : (ushort)0;
+            frame.PartCount = parts > 1 ? (ushort)parts : (ushort)0;
+        }
+        _partCount = parts;
+        return parts;
+    }
+
+    // Part capacities, measured once with the largest variants the frames
+    // can select: body dynamics and every declared drive point in its
+    // largest state ride part 0.
+    void PlanParts()
+    {
+        var probe0 = new Schema.MotionObject
+        {
+            Name = _objectName,
+            Channels = new List<Schema.ChannelValue> { new() { Number = 1f } },
+            DrivePoints = new List<Schema.DrivePoint>(),
+        };
+        probe0.InitBodyDynamics().SpecificForce.X = 1f;
+        foreach (var d in _pointDescriptors)
+        {
+            var point = new Schema.DrivePoint { Id = d.Id };
+            switch (d.Which)
+            {
+                case Schema.DrivePointDescriptor.Variant.Propeller:
+                    var prop = point.InitPropeller(); prop.Rpm = 1f; prop.InitExtended().Pitch = 1f;
+                    break;
+                case Schema.DrivePointDescriptor.Variant.Jet:
+                    var jet = point.InitJet(); jet.Throttle = 1f; jet.Thrust = 1f;
+                    break;
+                default:
+                    var wheel = point.InitWheel(); wheel.Rpm = 1f; wheel.Torque = 1f;
+                    wheel.InitExtended().SteerAngle = 1f;
+                    break;
+            }
+            probe0.DrivePoints!.Add(point);
+        }
+        var later = new Schema.MotionObject
+        {
+            Name = _objectName,
+            Channels = new List<Schema.ChannelValue> { new() { Number = 1f } },
+        };
+        var plan = MotionPartPlanner.Plan(2 * MaxChannels,
+            new Schema.MotionFrame { Timestamp = 1, Objects = new List<Schema.MotionObject> { probe0 } },
+            new Schema.MotionFrame { Timestamp = 1, Objects = new List<Schema.MotionObject> { later } });
+        _part0Capacity = plan[0].Count;
+        _partCapacity = plan.Count > 1 ? plan[1].Count : plan[0].Count;
+    }
+
+    // Later parts are allocated the first time a tick needs them, then reused.
+    void EnsureParts(int parts)
+    {
+        while (_parts.Count < parts)
+        {
+            var list = new List<Schema.ChannelValue>(_partCapacity);
+            _partValues.Add(list);
+            _parts.Add(new Schema.MotionFrame
+            {
+                Objects = new List<Schema.MotionObject> { new() { Name = _objectName, Channels = list } },
+            });
+        }
     }
 
     // Changed-only mode: booleans hold their last set value (absence on the
     // wire already means unchanged), numbers compare at wire precision.
-    void WriteChangedValues()
+    void WriteChangedValues(double nowSeconds)
     {
         _changedValues.Clear();
-        bool refresh = _refreshDue;
-        _refreshDue = false;
+        Array.Clear(_addedThisTick, 0, _channelCount);
         for (int i = 0; i < _channelCount; i++)
         {
             if (!_valueSet[i]) continue;
@@ -717,22 +897,52 @@ public sealed class OgsSession : IDisposable
             if (cv is null) continue;
             if (_isBool[i])
             {
-                bool b = _boolValue[i];
-                if (!refresh && !_alwaysSend[i] && _everSent[i] && _sentBool[i] == b) continue;
-                cv.Boolean = b;
-                _sentBool[i] = b;
+                if (!_alwaysSend[i] && _everSent[i] && _sentBool[i] == _boolValue[i]) continue;
             }
-            else
-            {
-                float f = (float)_pushed[i];
-                if (!refresh && !_alwaysSend[i] && _everSent[i] &&
-                    _sentNumber[i].Equals(f)) continue;
-                cv.Number = f;
-                _sentNumber[i] = f;
-            }
-            _everSent[i] = true;
-            _changedValues.Add(cv);
+            else if (!_alwaysSend[i] && _everSent[i] && _sentNumber[i].Equals((float)_pushed[i])) continue;
+            AddValue(i, cv);
         }
+
+        // bounded refresh: unchanged values too, round-robin in a continuous
+        // cycle paced to last one discovery interval, so no value goes longer
+        // than the interval without being re-sent (late joiners converge)
+        // and the refresh costs no more than that guarantee needs
+        if (_refreshCursor >= _channelCount || double.IsNaN(_refreshCycleStart))
+        {
+            _refreshCursor = 0;
+            _refreshCycleStart = nowSeconds;
+        }
+        double tick = double.IsNegativeInfinity(_lastMotion) ? 0 : nowSeconds - _lastMotion;
+        // aim to finish at 90 % of the interval: margin for tick jitter
+        double left = Math.Max(_refreshCycleStart + 0.9 * _discoveryInterval - nowSeconds, tick);
+        int remaining = _channelCount - _refreshCursor;
+        int quota = left > 0 && tick > 0 ? Math.Max(1, (int)Math.Ceiling(remaining * tick / left)) : remaining;
+        while (quota > 0 && _refreshCursor < _channelCount)
+        {
+            int i = _refreshCursor++;
+            var cv = _motionById[i];
+            if (!_valueSet[i] || cv is null || _addedThisTick[i]) continue;
+            AddValue(i, cv);
+            quota--;
+        }
+    }
+
+    void AddValue(int i, Schema.ChannelValue cv)
+    {
+        if (_isBool[i])
+        {
+            cv.Boolean = _boolValue[i];
+            _sentBool[i] = _boolValue[i];
+        }
+        else
+        {
+            float f = (float)_pushed[i];
+            cv.Number = f;
+            _sentNumber[i] = f;
+        }
+        _everSent[i] = true;
+        _addedThisTick[i] = true;
+        _changedValues.Add(cv);
     }
 
     public void Dispose()
@@ -742,7 +952,10 @@ public sealed class OgsSession : IDisposable
         _drivePoints.Clear();
         _motionFrame = null;
         _motionValues = null;
+        _parts.Clear();
+        _partValues.Clear();
         _discoveryFrame = null;
+        _pages = null;
         _sender?.Dispose();
     }
 }

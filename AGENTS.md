@@ -11,11 +11,19 @@
   `sync-core.ps1` — never hand-edit it; run the script after upstream
   changes (it fetches from GitHub). App-specific behaviour belongs in
   `OgsSession`, not the core.
-- Motion datagrams must stay under ~1.4 kB (one Ethernet MTU). Discovery
-  should too; a source whose standard reference maps more (`msfs`) may
-  exceed it, because discovery is re-sent every 2 s, and must then send
-  changed channels only (`SendChangedChannelsOnly`). Wheel-level data
-  rides `WheelState` drive points, not flat channels.
+- Every datagram is at most 1,400 bytes, envelope included (the
+  standard's datagram budget, a MUST). `OgsSession` keeps it whatever a
+  source declares: discovery goes out as pages (the core's
+  `DiscoveryPager`; every page at Start, on a redeclare and on an identity
+  or environment change, otherwise spread across each re-send interval;
+  a session-text change re-sends only the values page), a tick with more
+  values than one datagram holds goes out as parts with the pose in part
+  0, and changed-only sessions refresh every value within each interval
+  in a paced round-robin. The generation increments on a redeclare and on
+  a type-label or location change once discovery has gone out. Sources
+  with large channel sets still call `SendChangedChannelsOnly`, to keep
+  ticks small. Wheel-level data rides `WheelState` drive points, not flat
+  channels.
 - Channel names follow the standard's Common Channels Annex where
   ratified, then its per-game sender reference (`reference-*.md`) where
   one exists; anything else gets a game-prefixed name.

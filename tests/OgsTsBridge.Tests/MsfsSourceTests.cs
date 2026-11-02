@@ -69,21 +69,27 @@ public class MsfsSourceTests
             return Capnp.DeserializerState.CreateRoot(MessageDecoder.DecodeMessage(payload.Span));
         }
 
-        public CapnpGen.DiscoveryFrame.READER Discovery() =>
-            CapnpGen.DiscoveryFrame.READER.create(Root(Sent.Last(x => x.type == FrameType.Discovery).datagram));
+        // identity, drive points, environment: discovery page 0
+        public CapnpGen.DiscoveryFrame.READER Discovery() => SentFrames.Page0(Sent);
 
-        public CapnpGen.MotionFrame.READER Motion() =>
-            CapnpGen.MotionFrame.READER.create(Root(Sent.Last(x => x.type == FrameType.Motion).datagram));
+        // pose, dynamics, drive points: part 0 of the latest tick
+        public CapnpGen.MotionFrame.READER Motion() => SentFrames.Part0(Sent);
 
-        public int MotionCount => Sent.Count(x => x.type == FrameType.Motion);
+        /// <summary>Ticks sent (a tick in several parts counts once).</summary>
+        public int MotionCount => SentFrames.Sizes(Sent).Count(x => x.type == FrameType.Motion) -
+            Sent.Where(x => x.type == FrameType.Motion).Count(x => PartIndex(x.datagram) > 0);
 
-        ushort Id(string name) =>
-            Discovery().Objects[0].Channels.First(c => c.Name == name).Id;
+        static int PartIndex(byte[] datagram) => CapnpGen.MotionFrame.READER.create(Root(datagram)).Part;
+
+        /// <summary>Every channel of the latest generation, across its pages.</summary>
+        public IEnumerable<CapnpGen.ChannelDescriptor.READER> Channels() => SentFrames.Channels(Sent);
+
+        ushort Id(string name) => Channels().First(c => c.Name == name).Id;
 
         public CapnpGen.ChannelValue.READER? Value(string name)
         {
             var id = Id(name);
-            foreach (var cv in Motion().Objects[0].Channels)
+            foreach (var cv in SentFrames.TickValues(SentFrames.Tick(Sent)))
                 if (cv.Id == id) return cv;
             return null;
         }
@@ -238,7 +244,7 @@ public class MsfsSourceTests
         Assert.True(rig.Boolean("light.landing"));
 
         var disc = rig.Discovery();
-        var com = disc.Objects[0].Channels.First(c => c.Name == "nav.com1.active");
+        var com = rig.Channels().First(c => c.Name == "nav.com1.active");
         Assert.Equal("Hz", com.Unit);
         AssertEx.ApproxEqual(90000f, disc.Environment.Pressure, 1e-2f);
     }
@@ -315,8 +321,8 @@ public class MsfsSourceTests
         AssertEx.ApproxEqual(3f, obj.NamedPoints[0].Position.Z, 1e-6f);
         var jets = obj.DrivePoints.Where(d => d.which == CapnpGen.DrivePointDescriptor.WHICH.Jet).ToList();
         Assert.Equal(new[] { "engine[1].jet", "engine[2].jet" }, jets.Select(j => j.Name));
-        Assert.Contains(obj.Channels, c => c.Name == "engine[2].n1");
-        Assert.DoesNotContain(obj.Channels, c => c.Name == "engine[3].n1");
+        Assert.Contains(rig.Channels(), c => c.Name == "engine[2].n1");
+        Assert.DoesNotContain(rig.Channels(), c => c.Name == "engine[3].n1");
 
         rig.Set("GENERAL ENG THROTTLE LEVER POSITION:2", 0.8);
         rig.Set("TURB ENG N1:1", 0.9);
