@@ -141,6 +141,7 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 | `thecrew2` | The Crew 2 (`TheCrew2`) | `phys_out_sim` UDP (port 1337); `patch --source thecrew2` writes `Documents\The Crew 2\ExtraConfig.xml` | pose + body dynamics (derived specific force) + channels |
 | `rushofblood` | Until Dawn: Rush of Blood on BloodRush shadPS4 (`shadps4`) | cart UDP (port 25151) from BloodRush b002+ | pose + body dynamics + channels |
 | `pmr` | Project Motor Racing (`ProjectMotorRacingGame`) | multicast UDP 224.0.0.150 port 7576 | pose + body dynamics (derived specific force) + wheels + ~250 channels |
+| `gt7` | Gran Turismo 7 (PS4/PS5 on the network; pinned or picked in the GUI) | Simulator Interface UDP (port 33740); heartbeats to the console (`--set console=IP`, default broadcast), Salsa20-decrypted | pose + body dynamics + wheels + channels |
 
 A **source is a format, not a game** — when a new title is confirmed to
 emit a covered format, it joins the executable watch list with no new
@@ -309,6 +310,11 @@ escape hatches; see `ogs-ts-bridge list <id>`):
   gravity-free; power as kW, temperatures as °C; the race-state packet
   maps only the fields whose layout is confirmed (vehicle id, player
   flag, vehicle and driver names); wheel order assumed FL, FR, RL, RR.
+- `gt7` — `axes` (default `x,y,z`) maps the world vectors and quaternion;
+  angular velocity taken as body rates, sway/heave/surge as gravity-free
+  body acceleration in m/s² (type 1 packets: the velocity derivative);
+  wheel speeds as rad/s; heartbeats go to the broadcast address unless
+  `console` is set.
 - `msfs` — `PLANE PITCH DEGREES` taken as positive nose-down and
   `PLANE BANK DEGREES` as positive left-down (both negated), with
   `ROTATION VELOCITY BODY` / `ROTATION ACCELERATION BODY` X and Z negated

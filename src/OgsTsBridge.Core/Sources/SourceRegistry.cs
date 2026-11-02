@@ -30,6 +30,7 @@ public static class SourceRegistry
         new TheCrew2Source(),
         new RushOfBloodSource(),
         new PmrSource(),
+        new Gt7Source(),
     };
 
     public static ILegacySource Create(string id)

@@ -101,7 +101,7 @@ run options:
                 var input = Forwarders.DescribeInput(s);
                 Console.WriteLine($"  {s.Id,-12} {s.Title} — {input}");
                 foreach (var g in s.Games)
-                    Console.WriteLine($"               {g.DisplayName} ({g.ProcessName})");
+                    Console.WriteLine($"               {GameLine(g)}");
                 Console.WriteLine($"               {s.Description}");
             }
             return 0;
@@ -121,7 +121,7 @@ run options:
         Console.WriteLine($"  watches processes: {string.Join(", ", src.ProcessNames)}");
         Console.WriteLine("  games:");
         foreach (var g in src.Games)
-            Console.WriteLine($"    {g.DisplayName} ({g.ProcessName})");
+            Console.WriteLine($"    {GameLine(g)}");
         Console.WriteLine($"  {src.Description}");
         Console.WriteLine("  options (--set key=value):");
         foreach (var (key, help) in src.Options)
@@ -192,6 +192,10 @@ run options:
             return RunPinned(o, cts.Token);
         return RunAuto(o, cts.Token);
     }
+
+    // a game without a PC process (a console title) has nothing to watch
+    static string GameLine(LegacyGame g) =>
+        g.ProcessName.Length > 0 ? $"{g.DisplayName} ({g.ProcessName})" : $"{g.DisplayName} (not watched; pin the source)";
 
     /// <summary>Manual mode: one pinned source, no process watching.</summary>
     static UdpInputSocket? TryBind(IPEndPoint local, RunOptions o, out bool failed)
