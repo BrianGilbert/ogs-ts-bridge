@@ -114,6 +114,7 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 | `--ttl <n>` | 1 | multicast scope (1 = local subnet) |
 | `--max-hz <n>` | 1000 | motion frame cap; below it, output cadence = input cadence |
 | `--priority <p>` | above | forwarder thread priority (`normal`/`above`/`high`) |
+| `--instance <label>` | "" | names this instance in receivers' session pickers ("Rig 2"); the host name is sent automatically |
 | `--no-stats` | off | silence the 1 Hz status line |
 
 ## Sources

@@ -152,6 +152,26 @@ public sealed class OgsSession : IDisposable
 
     // ---- declaration phase (before Start) ----
 
+    string _instanceLabel = "";
+    string _host = LocalHostName();
+
+    /// <summary>Names this Bridge instance in receivers' session pickers
+    /// (implementation-udp.md § Senders and sessions): a user-set label
+    /// such as "Rig 2", and the host name (null = this machine's, the
+    /// default).</summary>
+    public void SetInstance(string instanceLabel, string? host = null)
+    {
+        LockCheck("SetInstance");
+        _instanceLabel = instanceLabel ?? "";
+        _host = host ?? LocalHostName();
+    }
+
+    static string LocalHostName()
+    {
+        try { return System.Net.Dns.GetHostName() ?? ""; }
+        catch (Exception) { return ""; }
+    }
+
     public void DeclareObject(string name, Schema.ObjectType type, string typeLabel = "")
     {
         LockCheck("DeclareObject");
@@ -200,6 +220,7 @@ public sealed class OgsSession : IDisposable
             Name = name,
             Unit = unit,
             Description = description,
+            Type = Schema.ChannelType.Number,
         };
         if (!double.IsNaN(min) && !double.IsNaN(max))
         {
@@ -220,6 +241,7 @@ public sealed class OgsSession : IDisposable
             Name = name,
             Unit = "",
             Description = description,
+            Type = Schema.ChannelType.Boolean,
         });
         return h;
     }
@@ -238,6 +260,7 @@ public sealed class OgsSession : IDisposable
             Name = name,
             Unit = "",
             Description = description,
+            Type = Schema.ChannelType.Text,
         });
         var value = new Schema.ChannelValue { Id = (ushort)h.Id, Text = "" };
         _sessionValue[h.Id] = value;
@@ -682,6 +705,8 @@ public sealed class OgsSession : IDisposable
         SchemaVersion = 1,
         GameName = _gameName,
         SessionStartUnixUs = _sessionStartTicks / 10, // .NET ticks (100 ns) → µs
+        InstanceLabel = _instanceLabel,
+        Host = _host,
     };
 
     Schema.DiscoveryFrame CompleteDiscovery()
@@ -691,6 +716,8 @@ public sealed class OgsSession : IDisposable
             SchemaVersion = 1,
             GameName = _gameName,
             SessionStartUnixUs = _sessionStartTicks / 10, // .NET ticks (100 ns) → µs
+            InstanceLabel = _instanceLabel,
+            Host = _host,
             Environment =
             {
                 Gravity = _gravity, Medium = Schema.ContactMedium.Asphalt,

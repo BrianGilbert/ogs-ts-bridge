@@ -14,7 +14,7 @@ namespace OgsTsBridge
 ///   ogs-ts-bridge list [id]
 ///   ogs-ts-bridge run [--source <id>] [--in-port <n>]
 ///                      [--out 239.255.17.17:40123] [--ttl 1]
-///                      [--max-hz 1000] [--priority above]
+///                      [--max-hz 1000] [--priority above] [--instance <label>]
 ///                      [--set key=value ...]
 ///
 /// Without --source the app watches for known game executables and activates
@@ -85,6 +85,7 @@ run options:
   --ttl <n>            multicast TTL                     (1)
   --max-hz <n>         motion frame cap; input cadence   (1000)
   --priority <p>       forwarder thread: normal|above|high (above)
+  --instance <label>   name this instance for receivers' session pickers ("")
   --no-stats           disable the 1 Hz status line
   --set k=v            source-specific option (see `list <id>`)
 """);
@@ -138,6 +139,7 @@ run options:
         public double MaxHz = 1000;
         public ThreadPriority Priority = ThreadPriority.AboveNormal;
         public bool Stats = true;
+        public string InstanceLabel = "";
         public readonly Dictionary<string, string> SourceOptions = new();
     }
 
@@ -166,6 +168,7 @@ run options:
                     };
                     break;
                 case "--no-stats": o.Stats = false; break;
+                case "--instance": o.InstanceLabel = Next(); break;
                 case var kv when kv.StartsWith("--set"):
                     var set = kv == "--set" ? Next() : kv.Substring(5);
                     var eq = set.IndexOf('=');
@@ -231,6 +234,7 @@ run options:
         using var sender = new TelemetrySender(
             o.Endpoint.Address.ToString(), o.Endpoint.Port, o.Ttl, loopback: true);
         using var session = new OgsSession(sender, source.Title, o.MaxHz);
+        session.SetInstance(o.InstanceLabel);
         source.Declare(session);
 
         bool bindFailed = false;
