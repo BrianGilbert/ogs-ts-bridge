@@ -31,6 +31,7 @@ public static class SourceRegistry
         new RushOfBloodSource(),
         new PmrSource(),
         new Gt7Source(),
+        new ManiaPlanetSource(),
     };
 
     public static ILegacySource Create(string id)
