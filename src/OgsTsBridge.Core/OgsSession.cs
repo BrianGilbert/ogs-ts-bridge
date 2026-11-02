@@ -53,6 +53,8 @@ public sealed class OgsSession : IDisposable
     string _objectName = "player";
     Schema.ObjectType _objectType = Schema.ObjectType.Vehicle;
     string _typeLabel = "";
+    string _location = "local";
+    byte[] _typeLabelBytes = Array.Empty<byte>(), _locationBytes = Array.Empty<byte>();
     float _gravity = 9.81f; // the g the sources scale accelerometer values with
     bool _locked;
 
@@ -71,6 +73,15 @@ public sealed class OgsSession : IDisposable
     readonly bool[] _boolSet = new bool[MaxChannels];    // reset each tick; defaults false
     readonly bool[] _isBool = new bool[MaxChannels];
     int _channelCount;
+
+    // session-scoped text channels: carried in discovery `values`, never in
+    // motion frames; a change (detected on the raw bytes, so unchanged text
+    // costs no allocation) re-sends discovery on the next Tick
+    readonly bool[] _isSession = new bool[MaxChannels];
+    readonly Schema.ChannelValue?[] _sessionValue = new Schema.ChannelValue?[MaxChannels];
+    readonly byte[]?[] _sessionBytes = new byte[]?[MaxChannels];
+    readonly List<Schema.ChannelValue> _sessionValues = new();
+    bool _discoveryDue;
 
     // changed-only channel mode: a channel rides the motion frame when its
     // value differs from the last one sent, when it is marked always-sent,
@@ -94,6 +105,7 @@ public sealed class OgsSession : IDisposable
     Schema.DiscoveryFrame? _discoveryFrame;
     Schema.MotionFrame? _motionFrame;
     List<Schema.ChannelValue>? _motionValues;
+    readonly Schema.ChannelValue?[] _motionById = new Schema.ChannelValue?[MaxChannels];
 
     double _anchor = double.NaN;       // host clock value at Start
     double _lastDiscovery = double.NegativeInfinity;
@@ -183,6 +195,27 @@ public sealed class OgsSession : IDisposable
             Unit = "",
             Description = description,
         });
+        return h;
+    }
+
+    /// <summary>Declares a session-scoped text channel (track, vehicle,
+    /// compound names): its value rides discovery `values` and is never
+    /// sent in motion frames. Set it with <see cref="SetSessionText(OgsChannel, ReadOnlySpan{byte})"/>.</summary>
+    public OgsChannel AddSessionText(string name, string description = "")
+    {
+        LockCheck("AddSessionText");
+        var h = NewChannel(boolean: false);
+        _isSession[h.Id] = true;
+        _descriptors.Add(new Schema.ChannelDescriptor
+        {
+            Id = (ushort)h.Id,
+            Name = name,
+            Unit = "",
+            Description = description,
+        });
+        var value = new Schema.ChannelValue { Id = (ushort)h.Id, Text = "" };
+        _sessionValue[h.Id] = value;
+        _sessionValues.Add(value);
         return h;
     }
 
@@ -318,6 +351,11 @@ public sealed class OgsSession : IDisposable
         Array.Clear(_alwaysSend);
         Array.Clear(_everSent);
         Array.Clear(_valueSet);
+        Array.Clear(_isSession);
+        Array.Clear(_sessionValue);
+        Array.Clear(_sessionBytes);
+        Array.Clear(_motionById);
+        _sessionValues.Clear();
         _channelCount = 0;
         _discoveryFrame = null;
         _motionFrame = null;
@@ -409,6 +447,80 @@ public sealed class OgsSession : IDisposable
         _pointDirty[index] = true;
     }
 
+    /// <summary>Full extended wheel state (C-3 units: rad, N, m/s, Pa,
+    /// °C, 0..1 remaining) — the all-or-neither WheelExtended block.</summary>
+    public void SetWheelExtended(int index, float steerAngle, float loadForce, float damperVelocity,
+                                 float tyrePressure, float tyreTemp, float tyreWear)
+    {
+        var e = _points[index].InitWheel().InitExtended();
+        e.SteerAngle = steerAngle;
+        e.LoadForce = loadForce;
+        e.DamperVelocity = damperVelocity;
+        e.TyrePressure = tyrePressure;
+        e.TyreTemp = tyreTemp;
+        e.TyreWear = tyreWear;
+        _pointDirty[index] = true;
+    }
+
+    /// <summary>Wheel drive torque (Nm) and brake pressure (Pa).</summary>
+    public void SetWheelLoads(int index, float torque, float brakePressure)
+    {
+        var w = _points[index].InitWheel();
+        w.Torque = torque;
+        w.BrakePressure = brakePressure;
+        _pointDirty[index] = true;
+    }
+
+    /// <summary>Updates a session text channel from UTF-8 bytes (a NUL ends
+    /// the text, as in C string fields). Unchanged bytes cost a compare;
+    /// a change decodes once and re-sends discovery on the next Tick.</summary>
+    public void SetSessionText(OgsChannel channel, ReadOnlySpan<byte> utf8)
+    {
+        if (UpdateText(ref _sessionBytes[channel.Id], utf8, out var text))
+        {
+            _sessionValue[channel.Id]!.Text = text;
+            _discoveryDue = true;
+        }
+    }
+
+    public void SetSessionText(OgsChannel channel, string text)
+    {
+        if (_sessionValue[channel.Id]!.Text == text) return;
+        _sessionValue[channel.Id]!.Text = text;
+        _discoveryDue = true;
+    }
+
+    /// <summary>Updates the object's display location (track/place name)
+    /// from UTF-8 bytes; re-sends discovery when it changes.</summary>
+    public void SetLocation(ReadOnlySpan<byte> utf8)
+    {
+        if (!UpdateText(ref _locationBytes, utf8, out var text)) return;
+        _location = text.Length == 0 ? "local" : text;
+        if (_discoveryFrame is not null) _discoveryFrame.Objects![0].Location = _location;
+        _discoveryDue = true;
+    }
+
+    /// <summary>Updates the object's type label (vehicle/aircraft name —
+    /// receivers may select per-vehicle profiles on it) from UTF-8 bytes;
+    /// re-sends discovery when it changes.</summary>
+    public void SetTypeLabel(ReadOnlySpan<byte> utf8)
+    {
+        if (!UpdateText(ref _typeLabelBytes, utf8, out var text)) return;
+        _typeLabel = text;
+        if (_discoveryFrame is not null) _discoveryFrame.Objects![0].TypeLabel = _typeLabel;
+        _discoveryDue = true;
+    }
+
+    static bool UpdateText(ref byte[]? cache, ReadOnlySpan<byte> utf8, out string text)
+    {
+        int nul = utf8.IndexOf((byte)0);
+        if (nul >= 0) utf8 = utf8.Slice(0, nul);
+        if (cache is not null && utf8.SequenceEqual(cache)) { text = ""; return false; }
+        cache = utf8.ToArray();
+        text = System.Text.Encoding.UTF8.GetString(utf8).Trim();
+        return true;
+    }
+
     public void SetPropeller(int index, float rpm)
     {
         _points[index].InitPropeller().Rpm = rpm;
@@ -438,7 +550,7 @@ public sealed class OgsSession : IDisposable
         if (double.IsNaN(_anchor)) _anchor = nowSeconds;
         _locked = true;
 
-        if (_environmentPending || nowSeconds - _lastDiscovery >= _discoveryInterval)
+        if (_environmentPending || _discoveryDue || nowSeconds - _lastDiscovery >= _discoveryInterval)
             SendDiscovery(nowSeconds);
 
         if (nowSeconds - _lastMotion < _minMotionInterval)
@@ -477,11 +589,12 @@ public sealed class OgsSession : IDisposable
                     Type = _objectType,
                     TypeLabel = _typeLabel,
                     Primary = true,
-                    Location = "local",
+                    Location = _location,
                     ReferencePoint = { Name = "origin" },
                     NamedPoints = _namedPoints,
                     DrivePoints = _pointDescriptors,
                     Channels = _descriptors,
+                    Values = _sessionValues,
                 },
             },
         };
@@ -490,6 +603,7 @@ public sealed class OgsSession : IDisposable
         Send(FrameType.Discovery, _discoveryFrame);
         _lastDiscovery = nowSeconds;
         _environmentPending = false;
+        _discoveryDue = false;
         _refreshDue = true;
     }
 
@@ -509,7 +623,12 @@ public sealed class OgsSession : IDisposable
         {
             var values = new List<Schema.ChannelValue>(_channelCount);
             for (int i = 0; i < _channelCount; i++)
-                values.Add(new Schema.ChannelValue { Id = (ushort)i });
+            {
+                if (_isSession[i]) continue; // discovery-only
+                var cv = new Schema.ChannelValue { Id = (ushort)i };
+                values.Add(cv);
+                _motionById[i] = cv;
+            }
             _motionValues = values;
             _motionFrame = new Schema.MotionFrame
             {
@@ -570,10 +689,12 @@ public sealed class OgsSession : IDisposable
             else
                 for (int i = 0; i < _channelCount; i++)
                 {
+                    var cv = _motionById[i];
+                    if (cv is null) continue;
                     if (_isBool[i])
-                        _motionValues[i].Boolean = _boolSet[i] && _boolValue[i];
+                        cv.Boolean = _boolSet[i] && _boolValue[i];
                     else
-                        _motionValues[i].Number = (float)_pushed[i];
+                        cv.Number = (float)_pushed[i];
                     _boolSet[i] = false; // one-shot: absent booleans read false next tick
                 }
         }
@@ -592,7 +713,8 @@ public sealed class OgsSession : IDisposable
         for (int i = 0; i < _channelCount; i++)
         {
             if (!_valueSet[i]) continue;
-            var cv = _motionValues![i];
+            var cv = _motionById[i];
+            if (cv is null) continue;
             if (_isBool[i])
             {
                 bool b = _boolValue[i];

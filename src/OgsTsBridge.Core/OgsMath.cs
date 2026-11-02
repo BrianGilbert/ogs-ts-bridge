@@ -42,6 +42,13 @@ public static class OgsMath
     /// orientation-reversing isometry between the two conventions.</summary>
     public static Vector3 RhuYUpWorldToOgs(float x, float y, float z) => new(z, y, x);
 
+    /// <summary>Accelerometer-style specific force from a gravity-free
+    /// linear acceleration in OGS body axes: f = a − q⁻¹·(0, −g, 0), with
+    /// q the body orientation (so a car at rest reads +g on body y).</summary>
+    public static Vector3 SpecificForceFromLinear(Vector3 linearBody, Quaternion orientation,
+                                                  float gravity = 9.81f) =>
+        linearBody - Vector3.Transform(new Vector3(0, -gravity, 0), Quaternion.Conjugate(orientation));
+
     /// <summary>Derives OGS Euler angles from world-space forward and
     /// right unit vectors (already in OGS axes): yaw +nose-right,
     /// pitch +nose-up (forward's up-component), roll +right-side-down
