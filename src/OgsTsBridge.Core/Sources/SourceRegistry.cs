@@ -36,6 +36,7 @@ public static class SourceRegistry
         new IRacingSource(),
         new WarThunderSource(),
         new NoLimits2Source(),
+        new EliteSource(),
     };
 
     public static ILegacySource Create(string id)
