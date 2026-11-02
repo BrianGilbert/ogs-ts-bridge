@@ -138,6 +138,7 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 | `condor` | Condor 2 (`Condor`) | key=value UDP (port 55278), `Settings\UDP.ini` Enabled=1 | pose + body dynamics (load factor only) + soaring channels |
 | `aceshigh` | Aces High III (`aceshighsteam`) | CSV UDP (port 556): Offline → Options → Controls → Force Feedback | pose + body dynamics (derived specific force) + channels |
 | `flatout4` | FlatOut 4: Total Insanity VR (`Flatout`) | JSON UDP (port 20777), on by default via `Data\flatout_telemetry.cfg`; `patch --source flatout4` enables every group | pose + channels |
+| `thecrew2` | The Crew 2 (`TheCrew2`) | `phys_out_sim` UDP (port 1337); `patch --source thecrew2` writes `Documents\The Crew 2\ExtraConfig.xml` | pose + body dynamics (derived specific force) + channels |
 
 A **source is a format, not a game** — when a new title is confirmed to
 emit a covered format, it joins the executable watch list with no new
@@ -294,6 +295,10 @@ escape hatches; see `ogs-ts-bridge list <id>`):
 - `flatout4` — Euler degrees assumed yaw + right, pitch + up, roll +
   right; no body dynamics until the acceleration group's key names and
   frame are confirmed from a live capture (its keys are published raw).
+- `thecrew2` — Euler and rates assumed in the OGS senses, acceleration
+  (lateral, longitudinal, vertical) taken as m/s² and gravity-free;
+  position is published as float though one older reader treats it as
+  u32.
 - `msfs` — `PLANE PITCH DEGREES` taken as positive nose-down and
   `PLANE BANK DEGREES` as positive left-down (both negated), with
   `ROTATION VELOCITY BODY` / `ROTATION ACCELERATION BODY` X and Z negated
