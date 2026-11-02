@@ -131,10 +131,11 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 | `msfs` | Microsoft Flight Simulator 2020 (`FlightSimulator`), 2024 (`FlightSimulator2024`) | SimConnect, every sim frame; no in-sim setup | pose + body dynamics + environment + wheel, propeller and jet drive points + pilot/engine points + ~110 channels |
 | `r3e` | RaceRoom (`RRRE64`, `RRRE`) | `$R3E` shared memory, 2 ms poll; no in-game setup | pose + body dynamics (derived specific force) + wheels + channels |
 | `rf2` | rFactor 2 (`rFactor2`), Le Mans Ultimate (`Le Mans Ultimate`) | rF2 Shared Memory Map Plugin (`$rFactor2SMMP_*`: telemetry, scoring, extended, force feedback), 2 ms poll; enable the plugin in-game | pose + body dynamics (derived specific force) + wheels with rpm and surface + channels |
+| `scs` | Euro Truck Simulator 2 (`eurotrucks2`), American Truck Simulator (`amtrucks`) | `Local\Ets2TelemetryServer` shared memory from the ets2-telemetry-server plugin DLL (install it into `bin\win_x64\plugins`) | pose + body dynamics (derived specific force) + channels |
 
 A **source is a format, not a game** — when a new title is confirmed to
 emit a covered format, it joins the executable watch list with no new
-code. Further formats (GT7, iRacing, ETS2, DCS, X-Plane, the
+code. Further formats (GT7, iRacing, DCS, X-Plane, the
 HTTP/journal/memory-read families) are on the roadmap
 in [docs/PLUGINS.md](docs/PLUGINS.md) — the full guide to writing and
 registering new sources.
@@ -255,6 +256,11 @@ escape hatches; see `ogs-ts-bridge list <id>`):
   (`mIsPlayer`); per-wheel steer angle from `mToe`, damper velocity
   derived from the deflection change, `mWear` taken as fraction
   remaining.
+- `scs` — SDK vehicle space RH X-right/Y-up/Z-back: `(x, y, −z)`;
+  heading counter-clockwise (negated), roll taken as counter-clockwise
+  looking forward (negated); acceleration gravity-free; the page has no
+  angular rates, and holds nothing past plugin revision 4 (no wheel
+  arrays).
 - `msfs` — `PLANE PITCH DEGREES` taken as positive nose-down and
   `PLANE BANK DEGREES` as positive left-down (both negated), with
   `ROTATION VELOCITY BODY` / `ROTATION ACCELERATION BODY` X and Z negated

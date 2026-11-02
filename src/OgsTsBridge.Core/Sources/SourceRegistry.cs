@@ -20,6 +20,7 @@ public static class SourceRegistry
         new MsfsSource(),
         new R3eSource(),
         new Rf2Source(),
+        new ScsSource(),
     };
 
     public static ILegacySource Create(string id)
