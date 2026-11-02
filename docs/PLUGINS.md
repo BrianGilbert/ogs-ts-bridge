@@ -217,6 +217,21 @@ input port to `HeartbeatTarget` at start and every
 `HeartbeatIntervalSeconds`, so replies come back to the port it listens
 on.
 
+## Text formats and undocumented frames
+
+`JsonChannels` maps a JSON document (a UDP datagram or an HTTP reply) to
+channels without allocating once its keys are known: nested objects and
+arrays flatten to dotted paths, known keys get standard names and unit
+factors (`JsonKey`, or a resolver for keys that carry their unit), every
+other key is published raw as `<prefix>.<path>`, and a key not seen
+before makes `Read` return true so the source redeclares. `Watch` gives
+the source the values it maps by hand (pose, dynamics).
+
+When a format does not document its frame, take an `axes` option and an
+`AxisMap` ("z,y,-x": the game component feeding each OGS axis). It maps
+vectors, angular velocities and quaternions consistently, handedness
+changes included, so a live check fixes the frame without code.
+
 ## SimConnect sources
 
 For Microsoft Flight Simulator (and anything else speaking SimConnect),

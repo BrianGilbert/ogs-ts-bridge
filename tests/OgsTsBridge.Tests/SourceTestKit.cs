@@ -59,13 +59,15 @@ internal static class SourceTestKit
 
         public int DiscoveryPages() => SentFrames.Pages(Sent).Count;
 
-        /// <summary>A channel's value in the tick <paramref name="m"/> belongs to, across its parts.</summary>
+        /// <summary>A channel's value in the tick <paramref name="m"/> belongs
+        /// to, across its parts (a boolean reads 1 or 0).</summary>
         public float Channel(CapnpGen.MotionFrame.READER m, string name)
         {
             foreach (var ch in SentFrames.Channels(Sent))
                 if (ch.Name == name)
                     foreach (var cv in SentFrames.TickValues(SentFrames.Tick(Sent, m.Timestamp)))
-                        if (cv.Id == ch.Id) return cv.Number;
+                        if (cv.Id == ch.Id)
+                            return cv.which == CapnpGen.ChannelValue.WHICH.Boolean ? (cv.Boolean ? 1f : 0f) : cv.Number;
             throw new ArgumentException($"channel {name} missing");
         }
     }
@@ -96,5 +98,30 @@ internal static class SourceTestKit
     }
 
     internal static void Text(byte[] b, int off, string text) => Encoding.UTF8.GetBytes(text).CopyTo(b, off);
+
+    /// <summary>The packet path must not allocate (AGENTS.md latency
+    /// rules). The session gets a 1 Hz motion cap and the packets arrive
+    /// 1 ms apart, so after warm-up almost no tick encodes a datagram (the
+    /// vendored encoder allocates each one it emits); what Translate
+    /// allocates then is the source's own, and must be nothing.</summary>
+    internal static void AssertNoAllocation(ILegacySource src, Func<int, byte[]> packet)
+    {
+        const int runs = 400;
+        int sent = 0;
+        using var session = new OgsSession((t, d) => sent++, src.Id, maxHz: 1, discoveryIntervalSeconds: 3600);
+        src.Configure(new Dictionary<string, string>());
+        src.Declare(session);
+        double t = Now();
+        session.Start(t);
+        for (int i = 0; i < 50; i++) src.Translate(packet(i), session, t += 0.001);
+        var inputs = new byte[runs][];
+        for (int i = 0; i < runs; i++) inputs[i] = packet(50 + i);
+        sent = 0;
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < runs; i++) src.Translate(inputs[i], session, t += 0.001);
+        double perCall = (GC.GetAllocatedBytesForCurrentThread() - before) / (double)runs;
+        Assert.True(sent <= 2, $"{src.Id}: {sent} datagrams — the measurement needs a quiet session");
+        Assert.True(perCall < 1, $"{src.Id}: {perCall:F1} B allocated per Translate");
+    }
 }
 }
