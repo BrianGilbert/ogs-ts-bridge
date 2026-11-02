@@ -25,14 +25,33 @@ public sealed class Forwarder : IForwarder
     readonly ILegacySource _source;
     readonly UdpInputSocket _input;
     readonly OgsSession _session;
-    readonly byte[] _buffer = new byte[2048];
+    // the largest IPv4 UDP payload: text formats (JSON) run past an MTU
+    readonly byte[] _buffer = new byte[65536];
     readonly LatencyMeter _latency = new();
+    readonly IUdpHeartbeat? _heartbeat;
+    double _lastHeartbeat = double.NegativeInfinity;
 
     public Forwarder(ILegacySource source, UdpInputSocket input, OgsSession session)
     {
         _source = source;
         _input = input;
         _session = session;
+        if (source.MulticastGroup.Length > 0)
+            input.JoinMulticast(IPAddress.Parse(source.MulticastGroup));
+        if (source is IUdpHeartbeat { HeartbeatTarget: not null } heartbeat)
+            _heartbeat = heartbeat;
+    }
+
+    /// <summary>Sends the source's heartbeat when one is due. Checked on
+    /// every wake-up; the receive timeout bounds the gap while the game is
+    /// silent.</summary>
+    void Heartbeat()
+    {
+        if (_heartbeat is null) return;
+        double now = Now();
+        if (now - _lastHeartbeat < _heartbeat.HeartbeatIntervalSeconds) return;
+        _lastHeartbeat = now;
+        _input.Send(_heartbeat.HeartbeatPayload, _heartbeat.HeartbeatTarget!);
     }
 
     public ForwarderStats Stats { get; } = new();
@@ -49,6 +68,7 @@ public sealed class Forwarder : IForwarder
 
         while (!cancellation.IsCancellationRequested)
         {
+            Heartbeat();
             int len;
             try { len = _input.Receive(_buffer, ref from); }
             catch (Exception ex) when (ex is ObjectDisposedException or SocketException)

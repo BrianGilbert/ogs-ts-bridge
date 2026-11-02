@@ -40,6 +40,8 @@ public static class Forwarders
     {
         Sources.SourceTransport.SharedMemory => $"shared memory {source.SharedMemoryName}",
         Sources.SourceTransport.SimConnect => "SimConnect",
+        _ when source.MulticastGroup.Length > 0 =>
+            $"listening 0.0.0.0:{source.DefaultPort}, group {source.MulticastGroup}",
         _ => $"listening 0.0.0.0:{source.DefaultPort}",
     };
 }

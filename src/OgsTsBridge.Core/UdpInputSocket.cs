@@ -34,6 +34,7 @@ public sealed class UdpInputSocket : IDisposable
     {
         _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
         _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+        _socket.EnableBroadcast = true; // heartbeats to a console found by broadcast (GT7)
         try { _socket.ReceiveBufferSize = receiveBufferBytes; }
         catch (SocketException) { /* some stacks cap it — not fatal */ }
 
@@ -51,7 +52,10 @@ public sealed class UdpInputSocket : IDisposable
                     _socket.IOControl(SIO_LOOPBACK_FAST_PATH,
                         BitConverter.GetBytes(1), null);
                 }
-                catch (PlatformNotSupportedException) { /* needs same option on peer; best effort */ }
+                catch (Exception ex) when (ex is PlatformNotSupportedException or SocketException)
+                {
+                    /* best effort: not supported on UDP sockets in current Windows builds */
+                }
             }
         }
 
@@ -101,6 +105,21 @@ public sealed class UdpInputSocket : IDisposable
         {
             return 0;
         }
+    }
+
+    /// <summary>Joins an IPv4 multicast group on every interface the stack
+    /// picks (games that send to a group, not a host). Cold path.</summary>
+    public void JoinMulticast(IPAddress group) =>
+        _socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership,
+            new MulticastOption(group, IPAddress.Any));
+
+    /// <summary>Sends from the bound port (heartbeats a game answers to
+    /// the sender's address). <paramref name="to"/> is reused by the
+    /// caller, so the send does not allocate.</summary>
+    public void Send(byte[] payload, EndPoint to)
+    {
+        try { _socket.SendTo(payload, to); }
+        catch (SocketException) { /* host unreachable for now — next heartbeat retries */ }
     }
 
     public void Dispose()

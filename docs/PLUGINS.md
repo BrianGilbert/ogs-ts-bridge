@@ -184,6 +184,16 @@ out of a ~240 kB telemetry array, with the slot found from the scoring
 map. `Gather` returns 0 for "nothing new" (unchanged version, torn
 copy), and must not allocate.
 
+## UDP extras: multicast groups and heartbeats
+
+A game that sends to a multicast group sets `MulticastGroup` (Project
+Motor Racing: `224.0.0.150`); the input socket joins it after binding. A
+game that streams only while it hears from the receiver implements
+`IUdpHeartbeat` (GT7): the forwarder sends `HeartbeatPayload` from the
+input port to `HeartbeatTarget` at start and every
+`HeartbeatIntervalSeconds`, so replies come back to the port it listens
+on.
+
 ## SimConnect sources
 
 For Microsoft Flight Simulator (and anything else speaking SimConnect),

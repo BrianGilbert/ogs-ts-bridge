@@ -81,6 +81,10 @@ public interface ILegacySource
     /// names below.</summary>
     SourceTransport Transport => SourceTransport.Udp;
 
+    /// <summary>IPv4 multicast group the UDP input joins after binding
+    /// (games that send to a group rather than a host), or "" for none.</summary>
+    string MulticastGroup => "";
+
     /// <summary>Memory-mapped file name for SharedMemory sources (e.g.
     /// "Local\acpmf_physics").</summary>
     string SharedMemoryName => "";

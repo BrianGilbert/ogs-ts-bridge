@@ -203,7 +203,7 @@ The whole point of this app is to not be visible in the latency budget:
   datagram. No Cap'n Proto runtime ships with the app.
 - **Windows traps handled.** `SIO_UDP_CONNRESET` disabled (ICMP
   port-unreachable replies must not stall receives), `SIO_LOOPBACK_FAST_PATH`
-  on loopback binds, 1 MiB receive buffer so bursts queue in the kernel
+  on loopback binds where the stack allows it, 1 MiB receive buffer so bursts queue in the kernel
   instead of dropping (a drop costs a full source interval; buffering
   costs microseconds).
 - **Discovery double-send + keepalive.** The sender's first multicast
