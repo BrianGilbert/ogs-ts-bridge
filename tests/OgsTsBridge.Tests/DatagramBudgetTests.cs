@@ -46,6 +46,7 @@ public class DatagramBudgetTests
     [Theory]
     [InlineData("msfs")]
     [InlineData("r3e")]
+    [InlineData("rf2")]
     public void Large_Sources_Page_Their_Discovery(string id)
     {
         var src = SourceRegistry.Create(id);

@@ -19,6 +19,7 @@ public static class SourceRegistry
         new AcFamilySource(),
         new MsfsSource(),
         new R3eSource(),
+        new Rf2Source(),
     };
 
     public static ILegacySource Create(string id)
