@@ -133,6 +133,7 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 | `rf2` | rFactor 2 (`rFactor2`), Le Mans Ultimate (`Le Mans Ultimate`) | rF2 Shared Memory Map Plugin (`$rFactor2SMMP_*`: telemetry, scoring, extended, force feedback), 2 ms poll; enable the plugin in-game | pose + body dynamics (derived specific force) + wheels with rpm and surface + channels |
 | `scs` | Euro Truck Simulator 2 (`eurotrucks2`), American Truck Simulator (`amtrucks`) | `Local\Ets2TelemetryServer` shared memory from the ets2-telemetry-server plugin DLL (install it into `bin\win_x64\plugins`) | pose + body dynamics (derived specific force) + channels |
 | `xplane` | X-Plane 11/12 (`X-Plane`) | DATA UDP (port 49100): Settings → Data Output, Network column for rows 3, 4, 16, 17, 18, 20, 37 | pose + body dynamics + air-data channels |
+| `il2` | IL-2 Great Battles (`Il-2`) | `motiondevice` + `telemetrydevice` UDP (port 4321), enabled in `data\startup.cfg` | pose + body dynamics + engine/air channels |
 
 A **source is a format, not a game** — when a new title is confirmed to
 emit a covered format, it joins the executable watch list with no new
@@ -265,6 +266,10 @@ escape hatches; see `ogs-ts-bridge list <id>`):
 - `xplane` — attitude and Q/P/R rates aerospace-standard, mapped direct;
   g-loads accelerometer-style with axial + forward and side + right
   (`flipAxial`, `flipSide`).
+- `il2` — body axes assumed RH X-fwd/Y-up/Z-right: vectors `(z, y, x)`,
+  rates `(ωz, −ωy, ωx)`; Euler direct; acceleration assumed gravity-free;
+  telemetry record types 2, 3 and 7 are published raw (meaning
+  unidentified).
 - `msfs` — `PLANE PITCH DEGREES` taken as positive nose-down and
   `PLANE BANK DEGREES` as positive left-down (both negated), with
   `ROTATION VELOCITY BODY` / `ROTATION ACCELERATION BODY` X and Z negated

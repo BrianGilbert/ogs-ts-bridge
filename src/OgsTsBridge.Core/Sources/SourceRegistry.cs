@@ -22,6 +22,7 @@ public static class SourceRegistry
         new Rf2Source(),
         new ScsSource(),
         new XPlaneSource(),
+        new Il2Source(),
     };
 
     public static ILegacySource Create(string id)
