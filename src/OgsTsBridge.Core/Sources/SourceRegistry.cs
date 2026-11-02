@@ -35,6 +35,7 @@ public static class SourceRegistry
         new FalconBmsSource(),
         new IRacingSource(),
         new WarThunderSource(),
+        new NoLimits2Source(),
     };
 
     public static ILegacySource Create(string id)
