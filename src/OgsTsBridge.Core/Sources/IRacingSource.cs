@@ -54,7 +54,7 @@ public sealed class IRacingSource : ILegacySource, ISharedMemoryGather
         _lat = -1, _long = -1, _vert = -1, _onTrack = -1, _replay = -1;
     readonly int[] _shock = { -1, -1, -1, -1 };
     readonly int[] _wheel = new int[4];
-    OgsChannel _paused;
+    OgsChannel _paused, _replayChannel;
     bool _truncated; // variable set cut to the session's channel limit (tests read it)
     double _sy = 1, _sp = 1, _sr = 1;
 
@@ -202,6 +202,7 @@ public sealed class IRacingSource : ILegacySource, ISharedMemoryGather
         session.SendChangedChannelsOnly();
         _paused = session.AddBooleanChannel("session.paused", "Not driving (off track or replay)");
         session.AlwaysSend(_paused);
+        _replayChannel = session.AddBooleanChannel("session.replay", "A replay is playing");
         string[] corner = { "lf", "rf", "lr", "rr" };
         for (int w = 0; w < 4; w++)
             _wheel[w] = session.AddWheel("wheel." + corner[w], Vector3.Zero, 0.33f,
@@ -304,6 +305,7 @@ public sealed class IRacingSource : ILegacySource, ISharedMemoryGather
         bool onTrack = _onTrack < 0 || d[_onTrack] != 0;
         bool replay = _replay >= 0 && d[_replay] != 0;
         session.SetChannel(_paused, !onTrack || replay);
+        if (_replay >= 0) session.SetChannel(_replayChannel, replay);
         if (_yaw < 0) return;
 
         session.SetPose(null, OgsMath.EulerToQuaternion(-_sy * F(d, _yaw), _sp * F(d, _pitch), _sr * F(d, _roll)));

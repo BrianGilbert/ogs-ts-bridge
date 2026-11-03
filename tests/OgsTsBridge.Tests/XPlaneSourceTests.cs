@@ -94,7 +94,7 @@ public class XPlaneSourceTests
         AssertEx.ApproxEqual(0.01f, obj.BodyDynamics.AngularVelocity.X, 1e-6f); // Q: pitch
         AssertEx.ApproxEqual(0.03f, obj.BodyDynamics.AngularVelocity.Y, 1e-6f); // R: yaw
         AssertEx.ApproxEqual(0.02f, obj.BodyDynamics.AngularVelocity.Z, 1e-6f); // P: roll
-        AssertEx.ApproxEqual(100f * 0.514444f, cap.Channel(m, "air.speedIndicated"), 1e-3f);
+        AssertEx.ApproxEqual(100f * 0.514444f, cap.Channel(m, "air.indicatedAirspeed"), 1e-3f);
         AssertEx.ApproxEqual(61.7f, cap.Channel(m, "vehicle.speed"), 1e-3f);
         AssertEx.ApproxEqual((float)(47.5 * Deg), cap.Channel(m, "position.lat"), 1e-6f);
         AssertEx.ApproxEqual(121_500_000f, cap.Channel(m, "nav.com1.active"), 1f);

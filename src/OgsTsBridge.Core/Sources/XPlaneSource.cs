@@ -126,7 +126,8 @@ public sealed class XPlaneSource : ILegacySource, IUdpRequests
     int _engineCount;
     ulong _layout;
     bool[] _isConfig = Array.Empty<bool>();
-    readonly int _leftBrake, _rightBrake;
+    readonly int _leftBrake, _rightBrake, _speedbrake;
+    OgsChannel _spoilers, _spoilersArmed;
 
     double _sy = 1, _sp = 1, _sr = 1;
     float _axial = 1, _side = 1;
@@ -161,11 +162,11 @@ public sealed class XPlaneSource : ILegacySource, IUdpRequests
         S("sim/flightmodel/position/elevation", 30, "position.altMsl", "m", "Altitude above mean sea level");
         S("sim/flightmodel/position/y_agl", 60, "env.heightFromGround", "m", "Height above ground");
         // air data
-        S("sim/flightmodel/position/indicated_airspeed", 60, "air.speedIndicated", "m/s", "Indicated airspeed", Kt);
-        S("sim/flightmodel/position/true_airspeed", 60, "air.speedTrue", "m/s", "True airspeed");
+        S("sim/flightmodel/position/indicated_airspeed", 60, "air.indicatedAirspeed", "m/s", "Indicated airspeed", Kt);
+        S("sim/flightmodel/position/true_airspeed", 60, "air.trueAirspeed", "m/s", "True airspeed");
         S("sim/flightmodel/misc/machno", 30, "air.mach", "", "Mach number");
         S("sim/flightmodel/position/vh_ind", 60, "air.verticalSpeed", "m/s", "Vertical speed");
-        S("sim/flightmodel/position/alpha", 60, "air.alpha", "rad", "Angle of attack", Deg);
+        S("sim/flightmodel/position/alpha", 60, "air.aoa", "rad", "Angle of attack", Deg);
         S("sim/flightmodel/position/beta", 60, "air.beta", "rad", "Sideslip", Deg);
         S("sim/flightmodel/position/Q_dot", 60, "air.alphaX", "rad/s2", "Pitch angular acceleration", Deg);
         S("sim/flightmodel/position/R_dot", 60, "air.alphaY", "rad/s2", "Yaw angular acceleration", Deg);
@@ -196,7 +197,7 @@ public sealed class XPlaneSource : ILegacySource, IUdpRequests
         S("sim/cockpit2/controls/rudder_trim", 10, "ctrl.trim.rudder", "", "Rudder trim, -1..1");
         S("sim/cockpit2/controls/flap_handle_request_ratio", 10, "ctrl.flaps", "", "Flap handle, 0..1");
         S("sim/cockpit2/controls/flap_system_deploy_ratio", 30, "flaps.deployed", "", "Flap deployment, 0..1");
-        S("sim/cockpit2/controls/speedbrake_ratio", 10, "ctrl.spoilers", "", "Speedbrake handle, 0..1, -0.5 = armed (as sent)");
+        _speedbrake = Sub("sim/cockpit2/controls/speedbrake_ratio", 10); // handle; -0.5 = armed
         S("sim/flightmodel2/controls/speedbrake_ratio", 30, "spoilers.deployed", "", "Speedbrake deployment, 0..1");
         S("sim/cockpit2/controls/left_brake_ratio", 30, "brakes.left", "", "Left brake pedal, 0..1");
         S("sim/cockpit2/controls/right_brake_ratio", 30, "brakes.right", "", "Right brake pedal, 0..1");
@@ -431,6 +432,8 @@ public sealed class XPlaneSource : ILegacySource, IUdpRequests
         _engineRunning = session.AddBooleanChannel("engine.running", "Engine 1 running");
         _brakesPedal = session.AddChannel("brakes.pedal", "", "Brake pedal, 0..1 (larger of left and right)");
         _fuelLevel = session.AddChannel("fuel.level", "", "Fuel remaining, 0..1 of capacity");
+        _spoilers = session.AddChannel("ctrl.spoilers", "", "Speedbrake handle, 0..1");
+        _spoilersArmed = session.AddBooleanChannel("ctrl.spoilersArmed", "Speedbrake armed");
 
         _scalarChannels.Clear();
         foreach (var s in _scalars)
@@ -524,6 +527,12 @@ public sealed class XPlaneSource : ILegacySource, IUdpRequests
         if (_seen[_eng[0, 9]]) session.SetChannel(_engineTorque, _v[_eng[0, 9]]);
         if (_seen[_eng[0, 14]]) session.SetChannel(_engineRunning, _v[_eng[0, 14]] != 0);
         session.SetChannel(_brakesPedal, Math.Max(_v[_leftBrake], _v[_rightBrake]));
+        if (_seen[_speedbrake])
+        {
+            // X-Plane reports an armed speedbrake as -0.5 on the handle
+            session.SetChannel(_spoilers, Math.Max(0f, _v[_speedbrake]));
+            session.SetChannel(_spoilersArmed, _v[_speedbrake] < 0);
+        }
         float capacityKg = _v[_fuelCapacityLb] * 0.45359237f;
         if (capacityKg > 0) session.SetChannel(_fuelLevel, Math.Clamp(_v[_fuelTotal] / capacityKg, 0f, 1f));
 

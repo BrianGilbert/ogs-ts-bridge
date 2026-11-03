@@ -373,7 +373,7 @@ public sealed class MsfsSource : ISimConnectSource
         _chSlew = session.AddBooleanChannel("session.slew");
         _chZulu = session.AddChannel("session.timeOfDayZulu", "s");
         _chFrameRate = session.AddChannel("perf.frameRate", "Hz");
-        _chSimRate = session.AddChannel("perf.simRate", "", "Simulation rate multiplier");
+        _chSimRate = session.AddChannel("session.simRate", "", "Simulation time per real time, 1 = real time");
 
         _chLat = session.AddChannel("position.lat", "rad");
         _chLon = session.AddChannel("position.lon", "rad");
