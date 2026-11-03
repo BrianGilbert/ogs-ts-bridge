@@ -44,8 +44,8 @@ static class SentFrames
     public static IEnumerable<CapnpGen.ChannelDescriptor.READER> Channels(IEnumerable<(FrameType, byte[])> sent) =>
         Pages(sent).SelectMany(p => p.Objects.SelectMany(o => o.Channels));
 
-    public static IEnumerable<CapnpGen.ChannelValue.READER> SessionValues(IEnumerable<(FrameType, byte[])> sent) =>
-        Pages(sent).SelectMany(p => p.Objects.SelectMany(o => o.Values));
+    public static IEnumerable<CapnpGen.TextValue.READER> SessionValues(IEnumerable<(FrameType, byte[])> sent) =>
+        Pages(sent).SelectMany(p => p.Objects.SelectMany(o => o.Texts));
 
     /// <summary>The parts of the tick at <paramref name="timestamp"/>
     /// (default: the latest tick), part 0 first.</summary>

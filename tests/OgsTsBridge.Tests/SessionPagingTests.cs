@@ -91,7 +91,7 @@ public class SessionPagingTests
         var sent = SentFrames.Pages(rig.Sent);
         Assert.Single(sent);                             // the values page alone
         Assert.Equal(0u, sent[0].Generation);
-        Assert.Equal("Spa", sent[0].Objects[0].Values.Single().Text);
+        Assert.Equal("Spa", sent[0].Objects[0].Texts.Single().Text);
     }
 
     [Fact]

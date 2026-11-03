@@ -90,9 +90,9 @@ public sealed class OgsSession : IDisposable
     // motion frames; a change (detected on the raw bytes, so unchanged text
     // costs no allocation) re-sends discovery on the next Tick
     readonly bool[] _isSession = new bool[MaxChannels];
-    readonly Schema.ChannelValue?[] _sessionValue = new Schema.ChannelValue?[MaxChannels];
+    readonly Schema.TextValue?[] _sessionValue = new Schema.TextValue?[MaxChannels];
     readonly byte[]?[] _sessionBytes = new byte[]?[MaxChannels];
-    readonly List<Schema.ChannelValue> _sessionValues = new();
+    readonly List<Schema.TextValue> _sessionValues = new(); // session text (discovery `texts`)
 
     // changed-only channel mode: a channel rides the motion frame when its
     // value differs from the last one sent, when it is marked always-sent,
@@ -262,7 +262,7 @@ public sealed class OgsSession : IDisposable
             Description = description,
             Type = Schema.ChannelType.Text,
         });
-        var value = new Schema.ChannelValue { Id = (ushort)h.Id, Text = "" };
+        var value = new Schema.TextValue { Id = (ushort)h.Id, Text = "" };
         _sessionValue[h.Id] = value;
         _sessionValues.Add(value);
         return h;
@@ -523,12 +523,16 @@ public sealed class OgsSession : IDisposable
         _pointDirty[index] = true;
     }
 
-    /// <summary>Wheel drive torque (Nm) and brake pressure (Pa).</summary>
+    /// <summary>Wheel drive torque (Nm) and brake pressure (Pa); NaN
+    /// leaves a quantity the source does not measure unset (`noTorque`,
+    /// `noBrakePressure`), never 0.</summary>
     public void SetWheelLoads(int index, float torque, float brakePressure)
     {
         var w = _points[index].InitWheel();
-        w.Torque = torque;
-        w.BrakePressure = brakePressure;
+        var t = w.Torque;
+        if (float.IsNaN(torque)) t.SetNoTorque(); else t.Value = torque;
+        var b = w.BrakePressure;
+        if (float.IsNaN(brakePressure)) b.SetNoBrakePressure(); else b.Value = brakePressure;
         _pointDirty[index] = true;
     }
 
@@ -690,7 +694,7 @@ public sealed class OgsSession : IDisposable
         _valuePages.Clear();
         for (int i = 0; i < _pages.Count; i++)
             foreach (var o in _pages[i].Objects!)
-                if (o.Values is { Count: > 0 }) { _valuePages.Add(i); break; }
+                if (o.Values is { Count: > 0 } || o.Texts is { Count: > 0 }) { _valuePages.Add(i); break; }
         return _pages;
     }
 
@@ -735,7 +739,7 @@ public sealed class OgsSession : IDisposable
                     NamedPoints = _namedPoints,
                     DrivePoints = _pointDescriptors,
                     Channels = _descriptors,
-                    Values = _sessionValues,
+                    Texts = _sessionValues,
                 },
             },
         };
@@ -882,7 +886,9 @@ public sealed class OgsSession : IDisposable
                     var jet = point.InitJet(); jet.Throttle = 1f; jet.Thrust = 1f;
                     break;
                 default:
-                    var wheel = point.InitWheel(); wheel.Rpm = 1f; wheel.Torque = 1f;
+                    var wheel = point.InitWheel(); wheel.Rpm = 1f;
+                    var probeTorque = wheel.Torque; probeTorque.Value = 1f;
+                    var probeBrake = wheel.BrakePressure; probeBrake.Value = 1f;
                     wheel.InitExtended().SteerAngle = 1f;
                     break;
             }
