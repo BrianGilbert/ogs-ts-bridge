@@ -89,18 +89,18 @@ public sealed class XPlaneSource : ILegacySource, IUdpRequests
     static readonly (string Path, string Name, string Unit, string Description, double Scale, Kind Kind)[] GearFields =
     {
         ("sim/flightmodel2/gear/deploy_ratio", "position", "", "Gear deployment, 0 up .. 1 down", 1, Kind.Number),
-        ("sim/flightmodel2/gear/tire_steer_actual_deg", "steerAngle", "rad", "Steer angle, + right", Deg, Kind.Number),
-        ("sim/flightmodel2/gear/tire_vertical_force_n_mtr", "loadForce", "N", "Vertical load", 1, Kind.Number),
-        ("sim/flightmodel2/gear/total_deflection_rate", "damperVelocity", "m/s", "Deflection rate, + compressing", 1, Kind.Number),
         ("sim/flightmodel2/gear/tire_part_brake", "brake", "", "Braking on this gear, 0..1", 1, Kind.Number),
     };
-    const int GRate = 0, GSkid = 1, GDeflection = 2, GOnGround = 3;
+    const int GRate = 0, GSkid = 1, GDeflection = 2, GOnGround = 3, GSteer = 4, GLoad = 5, GDamper = 6;
     static readonly string[] GearState =
     {
         "sim/flightmodel2/gear/tire_rotation_rate_rad_sec",
         "sim/flightmodel2/gear/tire_skid_ratio",
         "sim/flightmodel2/gear/tire_vertical_deflection_mtr",
         "sim/flightmodel2/gear/on_ground",
+        "sim/flightmodel2/gear/tire_steer_actual_deg",
+        "sim/flightmodel2/gear/tire_vertical_force_n_mtr",   // newtons, despite the label
+        "sim/flightmodel2/gear/total_deflection_rate",       // + = compressing
     };
     readonly int[,] _gearState;
     readonly int _surface;
@@ -550,6 +550,8 @@ public sealed class XPlaneSource : ILegacySource, IUdpRequests
             session.SetWheel(_wheels[w].Point,
                 (float)(_v[_gearState[g, GRate]] * RadSToRpm), _v[_gearState[g, GSkid]],
                 _v[_gearState[g, GDeflection]], onGround ? medium : Schema.ContactMedium.Air);
+            session.SetWheelDynamics(_wheels[w].Point, (float)(_v[_gearState[g, GSteer]] * Deg),
+                _v[_gearState[g, GLoad]], _v[_gearState[g, GDamper]]);
         }
 
         session.Tick(now);

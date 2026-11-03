@@ -108,7 +108,7 @@ public class SourcesBatchTests
         AssertEx.ApproxEqual(200f, cap.Channel(disc, m, "engine.rpm"), 0.1f);  // 6000/30
         AssertEx.ApproxEqual(30f, cap.Channel(disc, m, "vehicle.speed"), 1e-2f);
         AssertEx.ApproxEqual(0.5f, cap.Channel(disc, m, "ego.gForceLateral"), 1e-4f);
-        AssertEx.ApproxEqual(0.05f, obj.DrivePoints[0].Wheel.Compression, 1e-5f); // wheel.fl
+        AssertEx.ApproxEqual(0.05f, obj.DrivePoints[0].Wheel.Compression.Value, 1e-5f); // wheel.fl
     }
 
     // ---------- SMS (pCARS2 / AMS2 / pCARS3) ----------
@@ -341,8 +341,8 @@ public class SourcesBatchTests
         AssertEx.ApproxEqual(1.0f * 9.81f, obj.BodyDynamics.SpecificForce.Y, 0.01f);
         AssertEx.ApproxEqual(1.5f * 9.81f, obj.BodyDynamics.SpecificForce.Z, 0.01f);
 
-        AssertEx.ApproxEqual(0.05f, obj.DrivePoints[0].Wheel.Compression, 1e-5f);
-        AssertEx.ApproxEqual(0.2f, obj.DrivePoints[0].Wheel.Slip, 1e-5f);
+        AssertEx.ApproxEqual(0.05f, obj.DrivePoints[0].Wheel.Compression.Value, 1e-5f);
+        AssertEx.ApproxEqual(0.2f, obj.DrivePoints[0].Wheel.Slip.Value, 1e-5f);
 
         var disc = cap.Discovery();
         AssertEx.ApproxEqual(7200f, cap.Channel(disc, m, "engine.rpm"), 0.1f);

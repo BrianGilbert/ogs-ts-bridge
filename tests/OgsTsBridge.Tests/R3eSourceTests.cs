@@ -75,15 +75,15 @@ public class R3eSourceTests
         AssertEx.ApproxEqual(-0.6f, obj.BodyDynamics.AngularVelocity.Z, 1e-5f);
 
         var fl = obj.DrivePoints[0].Wheel;
-        AssertEx.ApproxEqual(0.02f, fl.Compression, 1e-6f);
-        AssertEx.ApproxEqual((float)(100 * 60 / (2 * Math.PI)), fl.Rpm, 0.01f);
+        AssertEx.ApproxEqual(0.02f, fl.Compression.Value, 1e-6f);
+        AssertEx.ApproxEqual((float)(100 * 60 / (2 * Math.PI)), fl.Rpm.Value, 0.01f);
         Assert.Equal(CapnpGen.ContactMedium.rumbleStrip, fl.Contact);
-        AssertEx.ApproxEqual((float)(0.5 * 20 * Math.PI / 180), fl.Extended.SteerAngle, 1e-5f);
-        AssertEx.ApproxEqual(3000f, fl.Extended.LoadForce, 1e-3f);
-        AssertEx.ApproxEqual(0.1f, fl.Extended.DamperVelocity, 1e-6f);
-        AssertEx.ApproxEqual(180000f, fl.Extended.TyrePressure, 0.5f);
-        AssertEx.ApproxEqual(90f, fl.Extended.TyreTemp, 1e-4f);
-        AssertEx.ApproxEqual(0.9f, fl.Extended.TyreWear, 1e-6f);
+        AssertEx.ApproxEqual((float)(0.5 * 20 * Math.PI / 180), fl.SteerAngle.Value, 1e-5f);
+        AssertEx.ApproxEqual(3000f, fl.LoadForce.Value, 1e-3f);
+        AssertEx.ApproxEqual(0.1f, fl.DamperVelocity.Value, 1e-6f);
+        AssertEx.ApproxEqual(180000f, fl.Tyre.Pressure, 0.5f);
+        AssertEx.ApproxEqual(90f, fl.Tyre.Temperature, 1e-4f);
+        AssertEx.ApproxEqual(0.9f, fl.Tyre.Wear, 1e-6f);
 
         AssertEx.ApproxEqual((float)(600 * 60 / (2 * Math.PI)), cap.Channel(m, "engine.rpm"), 0.1f);
         AssertEx.ApproxEqual(50f, cap.Channel(m, "vehicle.speed"), 1e-4f);

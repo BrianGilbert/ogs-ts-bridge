@@ -159,10 +159,10 @@ public sealed class EgoSource : ILegacySource, IGamePatcher
         var dir = OgsMath.RhuYUpWorldToOgs(F(d, 32, be), F(d, 36, be), F(d, 40, be));
         session.SetKinematics(dir * speed, default);
 
-        session.SetWheel(0, 0f, F(d, 76, be), Ogs.Telemetry.Schema.ContactMedium.Asphalt); // packet order bl,br,fl,fr
-        session.SetWheel(1, 0f, F(d, 80, be), Ogs.Telemetry.Schema.ContactMedium.Asphalt);
-        session.SetWheel(2, 0f, F(d, 68, be), Ogs.Telemetry.Schema.ContactMedium.Asphalt);
-        session.SetWheel(3, 0f, F(d, 72, be), Ogs.Telemetry.Schema.ContactMedium.Asphalt);
+        session.SetWheel(0, float.NaN, F(d, 76, be), Ogs.Telemetry.Schema.ContactMedium.Asphalt); // packet order bl,br,fl,fr
+        session.SetWheel(1, float.NaN, F(d, 80, be), Ogs.Telemetry.Schema.ContactMedium.Asphalt);
+        session.SetWheel(2, float.NaN, F(d, 68, be), Ogs.Telemetry.Schema.ContactMedium.Asphalt);
+        session.SetWheel(3, float.NaN, F(d, 72, be), Ogs.Telemetry.Schema.ContactMedium.Asphalt);
 
         session.SetChannel(_rpm, F(d, 148, be) / _rpmScale);
         session.SetChannel(_speed, speed);

@@ -267,7 +267,7 @@ public sealed class Gt7Source : ILegacySource, IUdpHeartbeat
         session.SetBodyDynamics(_gravIncluded ? accel : OgsMath.SpecificForceFromLinear(accel, q), rates);
 
         for (int w = 0; w < 4; w++)
-            session.SetWheel(_wheel[w], (float)(F(0xA4 + w * 4) * Rpm), 0f, 0f,
+            session.SetWheel(_wheel[w], (float)(F(0xA4 + w * 4) * Rpm), float.NaN, float.NaN,
                 Ogs.Telemetry.Schema.ContactMedium.Asphalt);
 
         session.Tick(now);

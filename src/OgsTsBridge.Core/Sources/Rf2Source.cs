@@ -299,11 +299,13 @@ public sealed class Rf2Source : ILegacySource, ISharedMemoryGather
         {
             int at = V + 848 + w * 260;
             double deflection = D(d, at);
-            float damper = _haveDeflection && dt > 0 ? (float)((deflection - _lastDeflection[w]) / dt) : 0f;
+            // no damper velocity until two deflection samples exist
+            float damper = _haveDeflection && dt > 0 ? (float)((deflection - _lastDeflection[w]) / dt) : float.NaN;
             _lastDeflection[w] = deflection;
-            session.SetWheel(w, (float)(Math.Abs(D(d, at + 40)) * RadPerSecToRpm), 0f,
+            session.SetWheel(w, (float)(Math.Abs(D(d, at + 40)) * RadPerSecToRpm), float.NaN,
                 (float)deflection, Surface(d[at + 176]));
-            session.SetWheelExtended(w, (float)D(d, at + 196), (float)D(d, at + 104), damper,
+            session.SetWheelDynamics(w, (float)D(d, at + 196), (float)D(d, at + 104), damper);
+            session.SetWheelTyre(w,
                 (float)(D(d, at + 120) * 1000), (float)(D(d, at + 204) + Kelvin), (float)D(d, at + 152));
         }
         _haveDeflection = true;

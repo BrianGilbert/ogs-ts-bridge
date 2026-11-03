@@ -246,7 +246,7 @@ public class MsfsSourceTests
         var disc = rig.Discovery();
         var com = rig.Channels().First(c => c.Name == "nav.com1.active");
         Assert.Equal("Hz", com.Unit);
-        AssertEx.ApproxEqual(90000f, disc.Environment.Pressure, 1e-2f);
+        AssertEx.ApproxEqual(90000f, disc.Environment.Atmosphere.Known.Pressure, 1e-2f);
     }
 
     [Fact]
@@ -362,9 +362,9 @@ public class MsfsSourceTests
         rig.Send();
 
         var center = rig.Motion().Objects[0].DrivePoints[0];
-        AssertEx.ApproxEqual(300f, center.Wheel.Rpm, 1e-3f);
+        AssertEx.ApproxEqual(300f, center.Wheel.Rpm.Value, 1e-3f);
         Assert.Equal(CapnpGen.ContactMedium.grass, center.Wheel.Contact);
-        AssertEx.ApproxEqual(0.1f, center.Wheel.Extended.SteerAngle, 1e-6f);
+        AssertEx.ApproxEqual(0.1f, center.Wheel.SteerAngle.Value, 1e-6f);
         Assert.Equal(CapnpGen.ContactMedium.air, rig.Motion().Objects[0].DrivePoints[1].Wheel.Contact);
     }
 

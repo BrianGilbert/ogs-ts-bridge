@@ -312,7 +312,7 @@ public sealed class IRacingSource : ILegacySource, ISharedMemoryGather
             new Vector3((float)(-_sp * F(d, _pitchRate)), (float)(-_sy * F(d, _yawRate)), (float)(_sr * F(d, _rollRate))));
         for (int w = 0; w < 4; w++)
             if (_shock[w] >= 0)
-                session.SetWheel(_wheel[w], 0f, F(d, _shock[w]), Ogs.Telemetry.Schema.ContactMedium.Asphalt);
+                session.SetWheel(_wheel[w], float.NaN, F(d, _shock[w]), Ogs.Telemetry.Schema.ContactMedium.Asphalt);
 
         session.Tick(now);
     }

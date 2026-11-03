@@ -786,7 +786,7 @@ public sealed class MsfsSource : ISimConnectSource
                          Schema.ContactMedium medium)
     {
         if (double.IsNaN(rpm)) return;
-        session.SetWheel(index, (float)rpm, skid, 0f, contact > 0 ? medium : Schema.ContactMedium.Air);
+        session.SetWheel(index, (float)rpm, skid, float.NaN, contact > 0 ? medium : Schema.ContactMedium.Air);
     }
 
     // SURFACE TYPE enum → ContactMedium

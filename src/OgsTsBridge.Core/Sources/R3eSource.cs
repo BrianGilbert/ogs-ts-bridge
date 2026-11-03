@@ -155,12 +155,13 @@ public sealed class R3eSource : ILegacySource
         bool tyreData = F(d, 1644) >= 0;                         // -1 = N/A
         for (int w = 0; w < 4; w++)
         {
-            session.SetWheel(w, (float)(Math.Abs(F(d, 1564 + w * 4)) * RadPerSecToRpm), 0f,
+            session.SetWheel(w, (float)(Math.Abs(F(d, 1564 + w * 4)) * RadPerSecToRpm), float.NaN,
                 (float)D(d, 384 + w * 8), Surface(I(d, 1884 + w * 4)));
             if (!tyreData) continue;
             int t = 1676 + w * 24;
-            session.SetWheelExtended(w, w < 2 ? roadWheel : 0f,
-                Math.Max(0f, F(d, 1900 + w * 4)), (float)D(d, 416 + w * 8),
+            session.SetWheelDynamics(w, w < 2 ? roadWheel : 0f,
+                Math.Max(0f, F(d, 1900 + w * 4)), (float)D(d, 416 + w * 8));
+            session.SetWheelTyre(w,
                 F(d, 1644 + w * 4) * 1000f, (F(d, t) + F(d, t + 4) + F(d, t + 8)) / 3f,
                 Math.Max(0f, F(d, 1612 + w * 4)));
         }

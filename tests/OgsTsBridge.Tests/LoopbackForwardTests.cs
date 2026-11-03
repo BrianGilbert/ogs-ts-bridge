@@ -187,8 +187,8 @@ public sealed class LoopbackForwardTests
 
         // wheels: forged combined slip / compression / rumble contact
         Assert.Equal(4, obj.DrivePoints.Count);
-        AssertEx.ApproxEqual(Fixtures.CombinedSlipFL, obj.DrivePoints[0].Wheel.Slip, 1e-3f);
-        AssertEx.ApproxEqual(Fixtures.SuspMetersFL, obj.DrivePoints[0].Wheel.Compression, 1e-3f);
+        AssertEx.ApproxEqual(Fixtures.CombinedSlipFL, obj.DrivePoints[0].Wheel.Slip.Value, 1e-3f);
+        AssertEx.ApproxEqual(Fixtures.SuspMetersFL, obj.DrivePoints[0].Wheel.Compression.Value, 1e-3f);
         Assert.Equal(CapnpGen.ContactMedium.rumbleStrip, obj.DrivePoints[0].Wheel.Contact);
         Assert.Equal(CapnpGen.ContactMedium.asphalt, obj.DrivePoints[1].Wheel.Contact);
 

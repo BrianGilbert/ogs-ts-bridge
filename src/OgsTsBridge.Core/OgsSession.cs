@@ -71,7 +71,7 @@ public sealed class OgsSession : IDisposable
     bool _locked;
 
     // discovery environment (sent with each discovery)
-    float _airDensity = 1.225f, _temperature = 20f, _pressure = 101325f;
+    float _airDensity, _temperature, _pressure; // declared once SetEnvironment is called
     bool _environmentSet, _environmentPending;
 
     // per-tick state (receive thread only)
@@ -478,12 +478,23 @@ public sealed class OgsSession : IDisposable
         _valueSet[channel.Id] = true;
     }
 
+    // Every WheelState measurement is its own optionality union: a setter
+    // selects only the values it is given; anything never set stays "not
+    // measured". NaN also leaves (or returns) a field to "not measured".
+    static void Measure(Schema.WheelState.RpmGroup g, float v) { if (float.IsNaN(v)) g.SetNoRpm(); else g.Value = v; }
+    static void Measure(Schema.WheelState.SlipGroup g, float v) { if (float.IsNaN(v)) g.SetNoSlip(); else g.Value = v; }
+    static void Measure(Schema.WheelState.CompressionGroup g, float v) { if (float.IsNaN(v)) g.SetNoCompression(); else g.Value = v; }
+    static void Measure(Schema.WheelState.SteerAngleGroup g, float v) { if (float.IsNaN(v)) g.SetNoSteerAngle(); else g.Value = v; }
+    static void Measure(Schema.WheelState.LoadForceGroup g, float v) { if (float.IsNaN(v)) g.SetNoLoadForce(); else g.Value = v; }
+    static void Measure(Schema.WheelState.DamperVelocityGroup g, float v) { if (float.IsNaN(v)) g.SetNoDamperVelocity(); else g.Value = v; }
+
+    /// <summary>Wheel slip ratio and suspension compression (m), and contact.</summary>
     public void SetWheel(int index, float slip, float compression,
                          Schema.ContactMedium contact)
     {
         var w = _points[index].InitWheel(); // the existing state: no allocation
-        w.Slip = slip;
-        w.Compression = compression;
+        Measure(w.Slip, slip);
+        Measure(w.Compression, compression);
         w.Contact = contact;
         _pointDirty[index] = true;
     }
@@ -493,33 +504,39 @@ public sealed class OgsSession : IDisposable
                          Schema.ContactMedium contact)
     {
         var w = _points[index].InitWheel();
-        w.Rpm = rpm;
-        w.Slip = slip;
-        w.Compression = compression;
+        Measure(w.Rpm, rpm);
+        Measure(w.Slip, slip);
+        Measure(w.Compression, compression);
         w.Contact = contact;
         _pointDirty[index] = true;
     }
 
-    /// <summary>Road-wheel steer angle, rad, + = right (C-4/C-6) — selects
-    /// the wheel's extended state (its other extended fields read 0).</summary>
+    /// <summary>Road-wheel steer angle, rad, + = right (C-4/C-6).</summary>
     public void SetWheelSteer(int index, float steerAngle)
     {
-        _points[index].InitWheel().InitExtended().SteerAngle = steerAngle;
+        Measure(_points[index].InitWheel().SteerAngle, steerAngle);
         _pointDirty[index] = true;
     }
 
-    /// <summary>Full extended wheel state (C-3 units: rad, N, m/s, Pa,
-    /// °C, 0..1 remaining) — the all-or-neither WheelExtended block.</summary>
-    public void SetWheelExtended(int index, float steerAngle, float loadForce, float damperVelocity,
-                                 float tyrePressure, float tyreTemp, float tyreWear)
+    /// <summary>Steer angle (rad), suspension load force (N) and damper
+    /// velocity (m/s); NaN for any the source does not measure.</summary>
+    public void SetWheelDynamics(int index, float steerAngle, float loadForce, float damperVelocity)
     {
-        var e = _points[index].InitWheel().InitExtended();
-        e.SteerAngle = steerAngle;
-        e.LoadForce = loadForce;
-        e.DamperVelocity = damperVelocity;
-        e.TyrePressure = tyrePressure;
-        e.TyreTemp = tyreTemp;
-        e.TyreWear = tyreWear;
+        var w = _points[index].InitWheel();
+        Measure(w.SteerAngle, steerAngle);
+        Measure(w.LoadForce, loadForce);
+        Measure(w.DamperVelocity, damperVelocity);
+        _pointDirty[index] = true;
+    }
+
+    /// <summary>Tyre pressure (Pa), carcass temperature (°C) and wear (0..1
+    /// remaining) — reported together (TyreState).</summary>
+    public void SetWheelTyre(int index, float pressure, float temperature, float wear)
+    {
+        var t = _points[index].InitWheel().InitTyre();
+        t.Pressure = pressure;
+        t.Temperature = temperature;
+        t.Wear = wear;
         _pointDirty[index] = true;
     }
 
@@ -614,9 +631,10 @@ public sealed class OgsSession : IDisposable
     public void SetEnvironment(float airDensity, float temperature, float pressure)
     {
         _airDensity = airDensity; _temperature = temperature; _pressure = pressure;
+        // a known atmosphere from here on: mark it before refreshing the pages
+        if (!_environmentSet) { _environmentSet = true; _environmentPending = true; }
         if (_pages is not null)
             foreach (var page in _pages) FillEnvironment(page.Environment);
-        if (!_environmentSet) { _environmentSet = true; _environmentPending = true; }
     }
 
     /// <summary>Encodes and sends one motion frame if the cadence allows,
@@ -701,7 +719,13 @@ public sealed class OgsSession : IDisposable
     void FillEnvironment(Schema.Environment env)
     {
         env.Gravity = _gravity; env.Medium = Schema.ContactMedium.Asphalt;
-        env.AirDensity = _airDensity; env.Temperature = _temperature; env.Pressure = _pressure; // Pa
+        var atmosphere = env.Atmosphere;
+        if (_environmentSet)
+        {
+            var air = atmosphere.InitKnown();
+            air.AirDensity = _airDensity; air.Temperature = _temperature; air.Pressure = _pressure; // Pa
+        }
+        else atmosphere.SetNoAtmosphere(); // the source has no atmosphere model
     }
 
     Schema.DiscoveryFrame NewDiscovery() => new()
@@ -886,10 +910,13 @@ public sealed class OgsSession : IDisposable
                     var jet = point.InitJet(); jet.Throttle = 1f; jet.Thrust = 1f;
                     break;
                 default:
-                    var wheel = point.InitWheel(); wheel.Rpm = 1f;
+                    var wheel = point.InitWheel();
+                    // the largest state: every measurement selected, and the tyre
+                    Measure(wheel.Rpm, 1f); Measure(wheel.Slip, 1f); Measure(wheel.Compression, 1f);
+                    Measure(wheel.SteerAngle, 1f); Measure(wheel.LoadForce, 1f); Measure(wheel.DamperVelocity, 1f);
                     var probeTorque = wheel.Torque; probeTorque.Value = 1f;
                     var probeBrake = wheel.BrakePressure; probeBrake.Value = 1f;
-                    wheel.InitExtended().SteerAngle = 1f;
+                    wheel.InitTyre().Wear = 1f;
                     break;
             }
             probe0.DrivePoints!.Add(point);

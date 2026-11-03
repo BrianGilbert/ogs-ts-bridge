@@ -117,12 +117,12 @@ public class Rf2SourceTests
 
         var fl = obj.DrivePoints[0].Wheel;
         Assert.Equal(CapnpGen.ContactMedium.rumbleStrip, fl.Contact);
-        AssertEx.ApproxEqual((float)(10 * 60 / (2 * Math.PI)), fl.Rpm, 0.01f);
-        AssertEx.ApproxEqual(0.05f, fl.Extended.SteerAngle, 1e-6f);
-        AssertEx.ApproxEqual(4000f, fl.Extended.LoadForce, 1e-3f);
-        AssertEx.ApproxEqual(170000f, fl.Extended.TyrePressure, 0.5f);
-        AssertEx.ApproxEqual(90f, fl.Extended.TyreTemp, 1e-3f);
-        AssertEx.ApproxEqual(0.95f, fl.Extended.TyreWear, 1e-6f);
+        AssertEx.ApproxEqual((float)(10 * 60 / (2 * Math.PI)), fl.Rpm.Value, 0.01f);
+        AssertEx.ApproxEqual(0.05f, fl.SteerAngle.Value, 1e-6f);
+        AssertEx.ApproxEqual(4000f, fl.LoadForce.Value, 1e-3f);
+        AssertEx.ApproxEqual(170000f, fl.Tyre.Pressure, 0.5f);
+        AssertEx.ApproxEqual(90f, fl.Tyre.Temperature, 1e-3f);
+        AssertEx.ApproxEqual(0.95f, fl.Tyre.Wear, 1e-6f);
 
         AssertEx.ApproxEqual(8000f, cap.Channel(m, "engine.rpm"), 0.1f);
         AssertEx.ApproxEqual(110f, cap.Channel(m, "engine.oilTemp"), 1e-4f);
