@@ -59,8 +59,21 @@ sealed class OgsReceiver : IDisposable
         _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
         _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
         _socket.Bind(new IPEndPoint(IPAddress.Any, port));
+        // As a receiver should (implementation-udp.md § Network interfaces):
+        // by name on the interface the sender uses, and on loopback where the
+        // host allows it.
+        var address = IPAddress.Parse(group);
+        var nic = TelemetrySender.DefaultRouteAddress();
         _socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership,
-            new MulticastOption(IPAddress.Parse(group)));
+            nic is null ? new MulticastOption(address) : new MulticastOption(address, nic));
+        try
+        {
+            _socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership,
+                new MulticastOption(address, IPAddress.Loopback));
+        }
+        catch (SocketException)
+        {
+        }
     }
 
     public void Start() => _loop ??= Task.Run(() => Loop(_cts.Token));
