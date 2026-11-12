@@ -773,9 +773,10 @@ public sealed class OgsSession : IDisposable
 
     void Send(FrameType type, WireStruct frame)
     {
-        var datagram = CanonicalEncoder.EncodeDatagram(type, frame);
-        if (_sink is not null) _sink(type, datagram);
-        else _sender!.Send(datagram);
+        // the sink keeps each datagram, so it gets its own array; the socket path
+        // encodes into the sender's reused buffers (same bytes, no allocation)
+        if (_sink is not null) _sink(type, CanonicalEncoder.EncodeDatagram(type, frame));
+        else _sender!.Send(type, frame);
     }
 
     // Reuses the cached object graph; setting a value re-selects its union
