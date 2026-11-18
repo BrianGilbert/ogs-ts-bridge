@@ -66,6 +66,11 @@ public sealed class JsonChannels
             foreach (var k in known) _known[k.Path] = k;
     }
 
+    /// <summary>When set, only keys in the known table (or resolved by the
+    /// resolver) become channels; every other key is skipped. For documents
+    /// with open-ended sections such as contact lists.</summary>
+    public bool KnownOnly { get; init; }
+
     /// <summary>Keys left out of the channel set (read by the source only,
     /// or meaningless — e.g. a validity flag).</summary>
     public void Ignore(string path) => _ignored.Add(path);
@@ -244,7 +249,13 @@ public sealed class JsonChannels
         if (!_byHash.TryGetValue(hash, out var key))
         {
             var p = path.ToArray();
-            key = new Key { Path = p, Kind = kind, Ignored = _ignored.Contains(Encoding.UTF8.GetString(p)) };
+            var text = Encoding.UTF8.GetString(p);
+            key = new Key
+            {
+                Path = p, Kind = kind,
+                Ignored = _ignored.Contains(text) ||
+                          (KnownOnly && !_known.ContainsKey(text) && _resolve?.Invoke(text) is null),
+            };
             _byHash[hash] = key;
             if (!key.Ignored) _pending.Add(key);
             return;

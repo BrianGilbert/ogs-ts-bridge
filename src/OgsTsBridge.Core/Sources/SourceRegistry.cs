@@ -37,6 +37,13 @@ public static class SourceRegistry
         new WarThunderSource(),
         new NoLimits2Source(),
         new EliteSource(),
+        new KartKraftSource(),
+        new SrsSource(),
+        new FernbusSource(),
+        new DistanceSource(),
+        new NewStarGpSource(),
+        new IronRebellionSource(),
+        new XwaSource(),
     };
 
     public static ILegacySource Create(string id)

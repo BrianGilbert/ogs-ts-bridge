@@ -307,9 +307,6 @@ Games with no loader-mod route, still to cover:
   GTA 5 ScriptHookV script, an FS Lua mod). The existing ones are closed
   binaries that cannot be redistributed; each needs an add-on of our own
   (a separate project) before a source makes sense.
-- **X-Wing Alliance** — the X-Wing Alliance Upgrade's CockpitLook JSON
-  UDP (port 1138); waits on an XWAU install to confirm the key set and
-  the units and signs of its attitude and inertia values.
 - **FSX: Steam Edition** — on the `msfs` watch list, unverified: FSX is
   32-bit and the bundled client is the MSFS SimConnect.dll; if it cannot
   talk to FSX, a small x86 SimConnect relay is the fallback.
@@ -319,18 +316,11 @@ ue4ss-ogs-ts / uevr-ogs-ts for Unreal) publish motion without a Bridge
 source; a native source is still worth it where the game's own output
 carries more than motion:
 
-- **KartKraft** (UE4) — FlatBuffers motion UDP.
-- **Fernbus Simulator** (UE4) — local REST API (`/Vehicles/Current`, port 37337).
-- **G-Rebels, Kayak VR: Mirage, Whitewater VR** (UE) — likely one format
-  ("Motion Platform Linker", UDP 33001); confirm, then one source.
-- **Distance, New Star GP** (Unity, UDP 12345) — check for a shared
-  format first.
 - **Unity outputs**: 1976 Back to Midway, GravitreX Arcade, HyperStorm,
   Vector 36, Fly Dangerous, Overload, VTOL VR (mod loader), Helicopter
   Simulator 2021, Touring Karts, VRace Hover Bike, Warplanes WW1,
   Subnautica.
-- **Unreal outputs**: Ace Combat 7, MotoGP 18, Project Wingman, Redout,
-  Iron Rebellion (UDP 6969).
+- **Unreal outputs**: Ace Combat 7, MotoGP 18, Project Wingman, Redout.
 
 Not planned: Star Wars: Squadrons (process-memory reads in an online
 title).

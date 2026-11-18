@@ -125,7 +125,7 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 | `forza-sled` | Forza Horizon 4/5/6, Forza Motorsport 7+ | 232-byte "Sled" UDP (port 5300), Settings → Data Out → this machine, packet type Sled | pose + body dynamics + 4 wheel drive points + channels |
 | `ego` | Dirt Rally 2 (`dirtrally2`), DiRT 4 (`dirt4`), TDU Solar Crown (`TDUSC`) | EGO UDP (port 20777), byte order auto-detected; `patch --source ego` enables it in the game configs | pose + world kinematics + wheels + g-force channels |
 | `sms` | pCARS2 (`pCARS2AVX`), AMS2 (`AMS2AVX`), pCARS3 (`pCARS3`) | SMS UDP (port 5606) | pose + body dynamics + channels |
-| `f1` | F1 2020–2024 | Codemasters UDP (port 20777), motion + telemetry packets | pose + body dynamics + channels (2023+) |
+| `f1` | F1 2020–2024, F1 25 (`F1_25`, formats 2025 and 2026) | Codemasters UDP (port 20777), motion + telemetry packets | pose + body dynamics + channels (2023+) |
 | `wrc` | WRC (Generations-era, `WRC`) | WRC UDP (port 20777) | pose + world kinematics + channels |
 | `lfs` | Live for Speed (`LFS`) | OutSim UDP (port 3156) | pose + body dynamics (derived specific force) |
 | `ac-family` | Assetto Corsa (`acs`), ACC (`acc`), AC EVO (`AssettoCorsaEVO`) | `Local\acpmf_physics` (EVO: `Local\acevo_pmf_physics`) shared memory, 2 ms poll | pose + body dynamics + wheels + channels |
@@ -149,12 +149,18 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 | `warthunder` | War Thunder (`aces`) | local web server `127.0.0.1:8111` (`/state`, `/indicators`), polled every 20 ms | pose + body dynamics (load factor, roll rate) + channels |
 | `nolimits2` | NoLimits 2 (`nolimits2stm`) | telemetry server TCP 15151, polled; start with `--telemetry` (`patch --source nolimits2` makes the shortcut) | pose + body dynamics + channels |
 | `elite` | Elite Dangerous (`EliteDangerous64`) | process memory via a community `EliteDangerous64_Offsets.xml` (`--set offsets=path`), polled every 10 ms | channels (pose and dynamics with `--set motion=true`) |
+| `kartkraft` | KartKraft (`project_k`) | FlatBuffers UDP (port 5000), Settings → Telemetry (UDP) → this machine, or `OutputEndpoints` in `Game.ini` | pose + body dynamics + dashboard, lap, session and per-wheel surface/slip channels |
+| `srs` | G-Rebels (`G_Rebels-Win64-Shipping`), Whitewater VR (`WhitewaterVR-Win64-Shipping`), Kayak VR: Mirage (`KayakVR-Win64-Shipping`) | SimRacingStudio motion output UDP (port 33001) from the Motion Platform Linker: the 236-byte `api` packet or the plain motion block | pose + body dynamics (rates derived from the attitude) + channels |
+| `fernbus` | Fernbus Simulator (`Fernbus-Win64-Shipping`) | local REST API `127.0.0.1:37337/Vehicles/Current`, polled every 20 ms; no setup | pose + channels |
+| `distance` | Distance (`Distance`) | 128-byte struct UDP (port 12345) from the telemetry mod | pose + angular rates + channels |
+| `newstargp` | New Star GP (`NSGP`) | 100-byte struct UDP (port 12345) from the telemetry output | pose + angular rates + channels |
+| `ironrebellion` | Iron Rebellion (`Iron Rebellion`) | 80-byte struct UDP (port 6969) from the BepInEx telemetry mod | pose + angular rates + walker event channels |
+| `xwa` | X-Wing Alliance (`xwingalliance`) | X-Wing Alliance Upgrade CockpitLook JSON UDP (port 1138) | pose + ~30 channels |
 
 A **source is a format, not a game** — when a new title is confirmed to
 emit a covered format, it joins the executable watch list with no new
 code. What is still uncovered (games that need a game-side add-on of
-our own, X-Wing Alliance's upgrade-mod output, KartKraft and the
-engine-mod titles) is on the roadmap in [docs/PLUGINS.md](docs/PLUGINS.md)
+our own and the engine-mod titles) is on the roadmap in [docs/PLUGINS.md](docs/PLUGINS.md)
 — the full guide to writing and registering new sources.
 
 Every datagram the Bridge sends is at most 1,400 bytes, the standard's
@@ -347,6 +353,22 @@ escape hatches; see `ogs-ts-bridge list <id>`):
 - `elite` — the offsets file gives no units: every entry is published
   raw; `motion` (off by default) takes Yaw/Pitch/Roll as radians and
   Sway/Heave/Surge as m/s².
+- `kartkraft` — pitch/roll/yaw taken as the OGS rotation senses and the
+  local acceleration (X forward, Y right, Z up) as gravity-free linear
+  acceleration (`gravIncluded` to override).
+- `srs` — Euler angles in degrees (pitch, roll, yaw in the `api` packet;
+  yaw, pitch, roll in the plain block, `euler=rad` if it sends radians);
+  sway/heave/surge taken as m/s² (`accUnit=g`) and gravity-free
+  (`gravIncluded`); the two clients disagree on the `api` pitch/roll order,
+  pitch first is used; rates are derived from the attitude change.
+- `distance`, `newstargp`, `ironrebellion` — struct fields assumed 4
+  bytes each (32-bit booleans); Euler degrees, signs unverified; angular
+  rates assumed rad/s (`rates=deg`); the acceleration vectors have no
+  documented frame and ride channels only.
+- `xwa` — `abs_yaw/pitch/roll` taken as degrees (`euler=rad`); the inertia
+  values ride channels only.
+- `fernbus` — `Rotation` taken as Unreal degrees; Speed and Steering
+  published as sent.
 - `msfs` — `PLANE PITCH DEGREES` taken as positive nose-down and
   `PLANE BANK DEGREES` as positive left-down (both negated), with
   `ROTATION VELOCITY BODY` / `ROTATION ACCELERATION BODY` X and Z negated
