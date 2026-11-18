@@ -45,6 +45,7 @@ public static class SourceRegistry
         new IronRebellionSource(),
         new XwaSource(),
         new SquadronsSource(),
+        new AeroflySource(),
     };
 
     public static ILegacySource Create(string id)

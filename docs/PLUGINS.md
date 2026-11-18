@@ -317,7 +317,7 @@ source; a native source is still worth it where the game's own output
 carries more than motion:
 
 - **Unity outputs**: 1976 Back to Midway, GravitreX Arcade, HyperStorm,
-  Vector 36, Fly Dangerous, Overload, VTOL VR (mod loader), Helicopter
+  Vector 36, Overload, VTOL VR (mod loader), Helicopter
   Simulator 2021, Touring Karts, VRace Hover Bike, Warplanes WW1,
   Subnautica.
 - **Unreal outputs**: Ace Combat 7, MotoGP 18, Project Wingman, Redout.

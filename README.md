@@ -157,6 +157,7 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 | `newstargp` | New Star GP (`NSGP`) | 100-byte struct UDP (port 12345) from the telemetry output | pose + angular rates + channels |
 | `ironrebellion` | Iron Rebellion (`Iron Rebellion`) | 80-byte struct UDP (port 6969) from the BepInEx telemetry mod | pose + angular rates + walker event channels |
 | `xwa` | X-Wing Alliance (`xwingalliance`) | X-Wing Alliance Upgrade CockpitLook JSON UDP (port 1138) | pose + ~30 channels |
+| `aerofly` | Aerofly FS 2 (`aerofly_fs_2`) | text UDP (port 4123) from the community [Aerofly_FS_2_GamePlugin_Telemetry.dll](https://github.com/ashupp/AeroflyFS2TelemetryProvider) (GPL-3.0, not shipped): `patch --source aerofly` downloads the pinned release, checks its SHA-256 and puts it in `Documents\Aerofly FS 2\external_dll`, or copy it there yourself | pose + body dynamics (derived specific force) + speed channels |
 | `squadrons` | Star Wars: Squadrons (`starwarssquadrons`, `starwarssquadrons_launcher`) | process memory through built-in pointer chains for the final game build, polled every 20 ms; Easy Anti-Cheat must be off, the Bridge never disables it | channels (pose and surge with `--set motion=true`) |
 
 A **source is a format, not a game** — when a new title is confirmed to
@@ -187,6 +188,46 @@ the sim pauses, or sits in its menus, frames keep flowing with
 `SimConnect.dll` client ships with the Bridge
 ([lib/SimConnect/NOTICE.md](lib/SimConnect/NOTICE.md));
 `--set simconnect=<path>` points it at another copy.
+
+## Games the Bridge doesn't cover yet
+
+A source is only written where a game emits something to translate.
+These games don't have a Bridge source today. Most are reachable another
+way.
+
+### Unity games: BepInEx plugin
+
+[bepinex-ogs-ts](https://github.com/BrianGilbert/bepinex-ogs-ts) is a
+BepInEx plugin that publishes OGS-TS motion from a Unity game directly,
+with no game modification beyond installing it. It is a separate project
+from the Bridge. It has been validated in Subnautica Below Zero and Hyper
+Storm; the other games below use the same loader but have not been checked
+against it yet.
+
+1976 Back to Midway, GravitreX Arcade, Hyper Storm, Vector 36, Overload,
+VTOL VR (through its mod loader), Helicopter Simulator 2021, Touring
+Karts, VRace Hover Bike, Warplanes WW1, Subnautica.
+
+A native Bridge source is only worth adding where a game's own output
+carries more than the plugin can read from the player's body.
+
+### Unreal games: UE4SS and UEVR plugins
+
+- [ue4ss-ogs-ts](https://github.com/BrianGilbert/ue4ss-ogs-ts) for
+  flatscreen UE4/UE5 games that [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS)
+  can inject.
+- [uevr-ogs-ts](https://github.com/BrianGilbert/uevr-ogs-ts) for the same
+  games in VR through [UEVR](https://github.com/praydog/UEVR).
+
+Both are separate projects from the Bridge and have not been checked
+against the games below yet: Ace Combat 7, MotoGP 18, Project Wingman,
+Redout.
+
+### Unverified
+
+FSX: Steam Edition is on the `msfs` watch list, but FSX is 32-bit and the
+bundled client is the MSFS SimConnect.dll. If it can't talk to FSX, a small
+x86 SimConnect relay is the fallback.
 
 ## For game developers
 
@@ -370,6 +411,10 @@ below; a source missing from this list has been verified:
   bytes each (32-bit booleans); Euler degrees, signs unverified; angular
   rates assumed rad/s (`rates=deg`); the acceleration vectors have no
   documented frame and ride channels only.
+- `aerofly` — angles are radians × 1000 and map direct (`flip*` to override);
+  sway, heave (negated to up) and surge are taken as m/s² and gravity-free
+  (`gravIncluded` to override); the speed units are unconfirmed; the process
+  name `aerofly_fs_2` is assumed. Aerofly FS 4 is not covered.
 - `squadrons` — the pointer chains are the final build's and unverified; pitch and
   roll taken as radians, yaw as a per-sample increment that is integrated,
   forward acceleration as surge in m/s² (all behind `motion`, off by default).
