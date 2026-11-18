@@ -322,8 +322,8 @@ carries more than motion:
   Subnautica.
 - **Unreal outputs**: Ace Combat 7, MotoGP 18, Project Wingman, Redout.
 
-Not planned: Star Wars: Squadrons (process-memory reads in an online
-title).
+Star Wars: Squadrons is covered by the `squadrons` process-memory source
+(final game build, Easy Anti-Cheat must be off).
 
 Port priority: UDP formats first (event-driven, testable with forged
 packets), then shared memory, then the rest.

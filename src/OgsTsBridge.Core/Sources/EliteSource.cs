@@ -42,8 +42,7 @@ public sealed class EliteSource : IPolledSource
     string _section = "Odyssey";
     string? _offsetsPath;
     bool _motion;
-    IntPtr _process;
-    long _base;
+    readonly ProcessMemory _mem = new();
     int _yaw = -1, _pitch = -1, _roll = -1, _sway = -1, _heave = -1, _surge = -1,
         _srvYaw = -1, _srvPitch = -1, _srvRoll = -1;
     string _loadError = "";
@@ -149,50 +148,19 @@ public sealed class EliteSource : IPolledSource
     public bool Connect()
     {
         Disconnect();
-        if (_chains.Count == 0) return false;
-        var procs = Process.GetProcessesByName("EliteDangerous64");
-        try
-        {
-            if (procs.Length == 0) return false;
-            var p = procs[0];
-            _base = p.MainModule?.BaseAddress.ToInt64() ?? 0;
-            if (_base == 0) return false;
-            _process = OpenProcess(ProcessVmRead | ProcessQueryLimitedInformation, false, p.Id);
-            return _process != IntPtr.Zero;
-        }
-        catch (System.ComponentModel.Win32Exception) { return false; }
-        finally { foreach (var p in procs) p.Dispose(); }
+        return _chains.Count > 0 && _mem.Open("EliteDangerous64");
     }
 
-    public void Disconnect()
-    {
-        if (_process != IntPtr.Zero) CloseHandle(_process);
-        _process = IntPtr.Zero;
-    }
+    public void Disconnect() => _mem.Close();
 
     /// <summary>One float per chain, in file order (NaN where a chain does
     /// not resolve right now — e.g. the SRV chains while flying the ship).</summary>
     public int Read(byte[] buffer)
     {
-        if (_process == IntPtr.Zero) return -1;
-        if (!GetExitCodeProcess(_process, out uint code) || code != StillActive) return -1;
+        if (!_mem.IsAlive()) return -1;
         for (int i = 0; i < _chains.Count; i++)
-            MemoryMarshal.Write(buffer.AsSpan(i * 4), Resolve(_chains[i].Offsets));
+            MemoryMarshal.Write(buffer.AsSpan(i * 4), _mem.Resolve(_chains[i].Offsets));
         return _chains.Count * 4;
-    }
-
-    unsafe float Resolve(long[] offsets)
-    {
-        long p;
-        if (!ReadProcessMemory(_process, new IntPtr(_base + offsets[0]), &p, 8, out _)) return float.NaN;
-        for (int i = 1; i < offsets.Length - 1; i++)
-        {
-            if (p == 0) return float.NaN;
-            if (!ReadProcessMemory(_process, new IntPtr(p + offsets[i]), &p, 8, out _)) return float.NaN;
-        }
-        if (p == 0) return float.NaN;
-        float v;
-        return ReadProcessMemory(_process, new IntPtr(p + offsets[^1]), &v, 4, out _) ? v : float.NaN;
     }
 
     public void Declare(OgsSession session)
@@ -232,19 +200,5 @@ public sealed class EliteSource : IPolledSource
         }
         session.Tick(now);
     }
-
-    const uint ProcessVmRead = 0x0010, ProcessQueryLimitedInformation = 0x1000, StillActive = 259;
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    static extern bool CloseHandle(IntPtr handle);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    static extern bool GetExitCodeProcess(IntPtr process, out uint code);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    static extern unsafe bool ReadProcessMemory(IntPtr process, IntPtr address, void* buffer, nint size, out nint read);
 }
 }

@@ -44,6 +44,7 @@ public static class SourceRegistry
         new NewStarGpSource(),
         new IronRebellionSource(),
         new XwaSource(),
+        new SquadronsSource(),
     };
 
     public static ILegacySource Create(string id)

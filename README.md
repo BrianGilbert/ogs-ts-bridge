@@ -157,6 +157,7 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 | `newstargp` | New Star GP (`NSGP`) | 100-byte struct UDP (port 12345) from the telemetry output | pose + angular rates + channels |
 | `ironrebellion` | Iron Rebellion (`Iron Rebellion`) | 80-byte struct UDP (port 6969) from the BepInEx telemetry mod | pose + angular rates + walker event channels |
 | `xwa` | X-Wing Alliance (`xwingalliance`) | X-Wing Alliance Upgrade CockpitLook JSON UDP (port 1138) | pose + ~30 channels |
+| `squadrons` | Star Wars: Squadrons (`starwarssquadrons`, `starwarssquadrons_launcher`) | process memory through built-in pointer chains for the final game build, polled every 20 ms; Easy Anti-Cheat must be off, the Bridge never disables it | channels (pose and surge with `--set motion=true`) |
 
 A **source is a format, not a game** — when a new title is confirmed to
 emit a covered format, it joins the executable watch list with no new
@@ -369,6 +370,9 @@ below; a source missing from this list has been verified:
   bytes each (32-bit booleans); Euler degrees, signs unverified; angular
   rates assumed rad/s (`rates=deg`); the acceleration vectors have no
   documented frame and ride channels only.
+- `squadrons` — the pointer chains are the final build's and unverified; pitch and
+  roll taken as radians, yaw as a per-sample increment that is integrated,
+  forward acceleration as surge in m/s² (all behind `motion`, off by default).
 - `xwa` — `abs_yaw/pitch/roll` taken as degrees (`euler=rad`); the inertia
   values ride channels only.
 - `fernbus` — `Rotation` taken as Unreal degrees; Speed and Steering
