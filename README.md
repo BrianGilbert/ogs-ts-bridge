@@ -2,11 +2,12 @@
 
 > [!IMPORTANT]
 > **In active development.** The Bridge works end to end and is covered by
-> automated tests, but none of its game mappings have been verified against
-> the live games yet: axis directions and units come from each format's
-> documentation (see
+> automated tests, but only some of its game mappings have been verified
+> against the live games, because I don't own them all. The rest take their
+> axis directions and units from each format's documentation (see
 > [Axis conventions & verification](#axis-conventions--verification)).
-> Expect rough edges, and please report what you find on
+> Expect rough edges, and please report what you find, especially if you
+> own a game that isn't verified yet, on
 > [Discord](https://discord.gg/yyCp5D2Ccp). Windows only for now.
 >
 > Development is funded by
@@ -247,8 +248,11 @@ rotations: +pitch nose-up, +yaw nose-right, +roll right-side-down
 (CONVENTIONS C-1/C-4). `OgsMath.EulerToQuaternion` implements exactly
 this and is locked by unit tests against the C-4 definitions.
 
-Source mappings that are **derived from the format docs, not yet verified against the live games** (all have `--set flip*`
-escape hatches; see `ogs-ts-bridge list <id>`):
+Only some games have been checked against the live game, since not every
+title is owned by the maintainer. Source mappings that are **derived from
+the format docs, not yet verified against the live games** (all have
+`--set flip*` escape hatches; see `ogs-ts-bridge list <id>`) are listed
+below; a source missing from this list has been verified:
 
 - `beamng` — world vectors mapped `(x, y, z) → (−y, z, x)` (RH Z-up →
   LH Y-up); Euler assumed radians with direct sign mapping.
