@@ -158,6 +158,7 @@ ogs-ts-bridge list beamng   # one source's options (--set key=value)
 | `ironrebellion` | Iron Rebellion (`Iron Rebellion`) | 80-byte struct UDP (port 6969) from the BepInEx telemetry mod | pose + angular rates + walker event channels |
 | `xwa` | X-Wing Alliance (`xwingalliance`) | X-Wing Alliance Upgrade CockpitLook JSON UDP (port 1138) | pose + ~30 channels |
 | `aerofly` | Aerofly FS 2 (`aerofly_fs_2`) | text UDP (port 4123) from the community [Aerofly_FS_2_GamePlugin_Telemetry.dll](https://github.com/ashupp/AeroflyFS2TelemetryProvider) (GPL-3.0, not shipped): `patch --source aerofly` downloads the pinned release, checks its SHA-256 and puts it in `Documents\Aerofly FS 2\external_dll`, or copy it there yourself | pose + body dynamics (derived specific force) + speed channels |
+| `gta5` | Grand Theft Auto V, single player (`GTA5`) | text UDP (port 20777) from the community [GTAScriptHookPlugin.dll](https://github.com/knaufinator/GTAV-Telemetry-Simtools-plugin) ScriptHookVDotNet script (no license, not shipped). Install [ScriptHook V](https://www.dev-c.com/gtav/scripthookv/) and [ScriptHookVDotNet 3](https://github.com/scripthookvdotnet/scripthookvdotnet/releases) yourself, then `patch --source gta5` downloads the pinned script into the game's `scripts` folder after a SHA-256 check (Steam installs) | pose + body dynamics (derived specific force) + speed, rpm, gear and driving channels |
 | `squadrons` | Star Wars: Squadrons (`starwarssquadrons`, `starwarssquadrons_launcher`) | process memory through built-in pointer chains for the final game build, polled every 20 ms; Easy Anti-Cheat must be off, the Bridge never disables it | channels (pose and surge with `--set motion=true`) |
 
 A **source is a format, not a game** — when a new title is confirmed to
@@ -415,6 +416,11 @@ below; a source missing from this list has been verified:
   sway, heave (negated to up) and surge are taken as m/s² and gravity-free
   (`gravIncluded` to override); the speed units are unconfirmed; the process
   name `aerofly_fs_2` is assumed. Aerofly FS 4 is not covered.
+- `gta5` — the script divides velocity change by milliseconds, so its accelerations
+  are scaled by 1000 (`accScale`) and taken as gravity-free body acceleration;
+  Rotation X/Y/Z taken as pitch/roll/heading with the heading negated
+  (`flip*`); numbers are written in the player's culture, so a decimal-comma
+  locale is not parsed.
 - `squadrons` — the pointer chains are the final build's and unverified; pitch and
   roll taken as radians, yaw as a per-sample increment that is integrated,
   forward acceleration as surge in m/s² (all behind `motion`, off by default).

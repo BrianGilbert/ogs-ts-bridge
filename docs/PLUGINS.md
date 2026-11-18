@@ -302,11 +302,13 @@ already covers the UDP and MMF pipelines.
 
 Games with no loader-mod route, still to cover:
 
-- **Aerofly FS 2 / 4, GTA 5, Farming Simulator 19/22/25** — they emit
-  telemetry only through a game-side add-on (an Aerofly external DLL, a
-  GTA 5 ScriptHookV script, an FS Lua mod). The existing ones are closed
-  binaries that cannot be redistributed; each needs an add-on of our own
-  (a separate project) before a source makes sense.
+- **Aerofly FS 4, Farming Simulator 19/22/25** — they emit telemetry
+  only through a game-side add-on (an Aerofly external DLL, an FS Lua
+  mod). The existing ones are closed binaries that cannot be
+  redistributed; each needs an add-on of our own (a separate project)
+  before a source makes sense. Aerofly FS 2 and GTA 5 are covered by the
+  `aerofly` and `gta5` sources, which install a community add-on pinned
+  by commit and SHA-256.
 - **FSX: Steam Edition** — on the `msfs` watch list, unverified: FSX is
   32-bit and the bundled client is the MSFS SimConnect.dll; if it cannot
   talk to FSX, a small x86 SimConnect relay is the fallback.

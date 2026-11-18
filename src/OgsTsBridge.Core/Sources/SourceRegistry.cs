@@ -46,6 +46,7 @@ public static class SourceRegistry
         new XwaSource(),
         new SquadronsSource(),
         new AeroflySource(),
+        new Gta5Source(),
     };
 
     public static ILegacySource Create(string id)
