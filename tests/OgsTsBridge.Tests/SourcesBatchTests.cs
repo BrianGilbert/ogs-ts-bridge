@@ -148,7 +148,7 @@ public class SourcesBatchTests
         AssertEx.ApproxEqual(55.5f, cap.Channel(disc, m, "vehicle.speed"), 1e-3f);
     }
 
-    // ---------- F1 (Codemasters 2020-2024) ----------
+    // ---------- F1 (Codemasters 2020-2026) ----------
 
     static byte[] ForgeF1Motion(ushort format)
     {
@@ -158,12 +158,21 @@ public class SourcesBatchTests
         b[format >= 2023 ? 6 : 5] = 0;              // packetId = motion
         b[format >= 2023 ? 27 : 22] = 0;            // playerCarIndex
         void F(int off, float v) => MemoryMarshal.Write(b.AsSpan(hs + off, 4), ref v);
+        if (format >= 2026)
+        {
+            void S(int off, short v) => MemoryMarshal.Write(b.AsSpan(hs + off, 2), ref v);
+            S(36, 1000); S(38, 2000); S(40, 3000);  // g lat / long / vert, x1000
+            F(42, 0.1f); F(46, 0.2f); F(50, 0.3f);  // yaw / pitch / roll
+            return b;
+        }
         F(36, 1f); F(40, 2f); F(44, 3f);            // g lat / long / vert
         F(48, 0.1f); F(52, 0.2f); F(56, 0.3f);      // yaw / pitch / roll
         return b;
     }
 
     [Theory]
+    [InlineData(2026)]
+    [InlineData(2025)]
     [InlineData(2024)]
     [InlineData(2023)]
     [InlineData(2020)]
@@ -225,6 +234,41 @@ public class SourcesBatchTests
         AssertEx.ApproxEqual(100f / 3.6f, cap.Channel(disc, m, "vehicle.speed"), 0.01f);
         AssertEx.ApproxEqual(0.8f, cap.Channel(disc, m, "engine.throttle"), 1e-4f);
         AssertEx.ApproxEqual(0.3f, cap.Channel(disc, m, "brakes.pedal"), 1e-4f);
+    }
+
+    [Fact]
+    public void F1_Telemetry2026_Reads_The_59_Byte_Car_Stride()
+    {
+        using var cap = new Capture();
+        using var session = cap.MakeSession("F1");
+        var src = new F1Source();
+        src.Configure(O());
+        src.Declare(session);
+        session.Start(Monotonic());
+
+        const int hs = 29, stride = 59, car = 2;
+        var b = new byte[hs + 24 * stride + 3];
+        ushort format = 2026;
+        MemoryMarshal.Write(b.AsSpan(0, 2), ref format);
+        b[6] = 6; b[27] = car;
+        int p = hs + car * stride;
+        ushort rpm = 9000;
+        MemoryMarshal.Write(b.AsSpan(p + 18, 2), ref rpm);
+        float throttle = 0.5f;
+        MemoryMarshal.Write(b.AsSpan(p + 4, 4), ref throttle);
+
+        src.Translate(b, session, Monotonic());
+        var motion = ForgeF1Motion(2026);
+        var mb = new byte[29 + 24 * 54 + 3];
+        motion.CopyTo(mb, 0);
+        mb[27] = car;
+        MemoryMarshal.Write(mb.AsSpan(29 + car * 54 + 42, 4), ref throttle); // yaw slot, finite
+        src.Translate(mb, session, Monotonic());
+        var m = cap.LastMotion();
+        var disc = cap.Discovery();
+
+        AssertEx.ApproxEqual(9000f, cap.Channel(disc, m, "engine.rpm"), 0.1f);
+        AssertEx.ApproxEqual(0.5f, cap.Channel(disc, m, "engine.throttle"), 1e-4f);
     }
 
     // ---------- WRC ----------

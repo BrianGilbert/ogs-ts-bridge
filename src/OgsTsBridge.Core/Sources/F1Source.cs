@@ -7,7 +7,7 @@ namespace OgsTsBridge.Sources
 {
 /// <summary>
 /// Generic Codemasters F1 telemetry source — one format across F1 2020
-/// through F1 2024 (default port 20777; set the game's UDP telemetry to
+/// through F1 25 (default port 20777; set the game's UDP telemetry to
 /// this machine). The header layout changed in 2023 (gameYear byte +
 /// overallFrameIdentifier); playerCarIndex and the car array move
 /// accordingly — detected from packetFormat.
@@ -22,6 +22,10 @@ namespace OgsTsBridge.Sources
 /// @16, gear i8 @17, rpm u16 @18, drs u8 @20 — older formats keep the
 /// pre-2023 u8 layout and only motion is consumed.
 ///
+/// Format 2026 (F1 25 with the 2026 Season Pack, 24 cars): motion stride
+/// 54 with the g-forces as int16 /1000 @36 and yaw/pitch/roll @42; car
+/// telemetry stride 59 (the first 21 bytes keep their layout).
+///
 /// Output: pose + BodyDynamics from the motion packet (g-forces treated
 /// as accelerometer-style, gravity included, ×9.81 to m/s²); channels from
 /// the 2023+ telemetry packet.
@@ -32,19 +36,20 @@ public sealed class F1Source : ILegacySource
     double _sy = 1, _sp = 1, _sr = 1;
 
     public string Id => "f1";
-    public string Title => "Codemasters F1 (2020-2024)";
+    public string Title => "Codemasters F1 (2020-F1 25)";
     public string Description =>
         "F1 series UDP telemetry (default port 20777). In-game: Telemetry " +
-        "settings → UDP enabled, IP = this machine, format matches 2020-2024.";
+        "settings → UDP enabled, IP = this machine, format 2020-2026 (F1 25: pick 2025 or 2026 in the UDP format setting; 2026 needs the Season Pack DLC).";
     public int DefaultPort => 20777;
 
     public IReadOnlyList<string> ProcessNames { get; } = new[]
     {
-        "F1_24", "F1_23", "F1_22", "F1_2021", "F1_2020",
+        "F1_25", "F1_24", "F1_23", "F1_22", "F1_2021", "F1_2020",
     };
 
     public IReadOnlyList<LegacyGame> Games { get; } = new[]
     {
+        new LegacyGame("F1 25", "F1_25"),
         new LegacyGame("F1 2024", "F1_24"),
         new LegacyGame("F1 2023", "F1_23"),
         new LegacyGame("F1 2022", "F1_22"),
@@ -88,7 +93,7 @@ public sealed class F1Source : ILegacySource
     {
         if (d.Length < 26) return;
         ushort format = MemoryMarshal.Read<ushort>(d);
-        if (format is < 2020 or > 2024) return;
+        if (format is < 2020 or > 2026) return;
         // 2023+: packetFormat, gameYear, major, minor, packetVersion, packetId,
         //        sessionUID(8), sessionTime, frameId, overallFrameId, playerIdx, secondary
         // 2020-22: same without gameYear and overallFrameId
@@ -101,21 +106,34 @@ public sealed class F1Source : ILegacySource
             case 0: // motion
             {
                 int cars = headerSize;
-                if (cars + (playerCarIndex + 1) * 60 > d.Length) return;
-                int p = cars + playerCarIndex * 60;
+                int stride = format >= 2026 ? 54 : 60;
+                if (playerCarIndex >= 24 || cars + (playerCarIndex + 1) * stride > d.Length) return;
+                int p = cars + playerCarIndex * stride;
 
-                session.SetPose(null, OgsMath.EulerToQuaternion(
-                    _sy * F(d, p + 48), _sp * F(d, p + 52), _sr * F(d, p + 56)));
-                session.SetBodyDynamics(
-                    new System.Numerics.Vector3(F(d, p + 36), F(d, p + 44), F(d, p + 40)) * 9.81f,
-                    default);
+                float gLat, gLong, gVert, yaw, pitch, roll;
+                if (format >= 2026)
+                {
+                    gLat = MemoryMarshal.Read<short>(d.Slice(p + 36, 2)) / 1000f;
+                    gLong = MemoryMarshal.Read<short>(d.Slice(p + 38, 2)) / 1000f;
+                    gVert = MemoryMarshal.Read<short>(d.Slice(p + 40, 2)) / 1000f;
+                    yaw = F(d, p + 42); pitch = F(d, p + 46); roll = F(d, p + 50);
+                }
+                else
+                {
+                    gLat = F(d, p + 36); gLong = F(d, p + 40); gVert = F(d, p + 44);
+                    yaw = F(d, p + 48); pitch = F(d, p + 52); roll = F(d, p + 56);
+                }
+                if (!float.IsFinite(yaw) || !float.IsFinite(pitch) || !float.IsFinite(roll)) return;
+
+                session.SetPose(null, OgsMath.EulerToQuaternion(_sy * yaw, _sp * pitch, _sr * roll));
+                session.SetBodyDynamics(new System.Numerics.Vector3(gLat, gVert, gLong) * 9.81f, default);
                 session.Tick(now);
                 break;
             }
             case 6 when format >= 2023: // car telemetry (2023+ float layout)
             {
-                int p = headerSize + playerCarIndex * 60;
-                if (p + 22 > d.Length) return;
+                int p = headerSize + playerCarIndex * (format >= 2026 ? 59 : 60);
+                if (playerCarIndex >= 24 || p + 22 > d.Length) return;
                 session.SetChannel(_rpm, MemoryMarshal.Read<ushort>(d.Slice(p + 18, 2)));
                 session.SetChannel(_speed, MemoryMarshal.Read<ushort>(d.Slice(p, 2)) / 3.6);
                 session.SetChannel(_throttle, F(d, p + 4));
